@@ -1,0 +1,16 @@
+# 生产环境依赖
+Flask==2.3.3
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.0.5
+Flask-WTF==1.2.1
+WTForms==3.1.0
+Werkzeug==2.3.7
+
+# 生产环境额外依赖
+gunicorn==21.2.0
+
+# 安全相关
+cryptography==41.0.4
+
+# 监控和日志
+sentry-sdk[flask]==1.32.0
