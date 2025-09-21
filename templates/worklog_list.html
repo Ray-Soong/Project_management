@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}工时记录 - 项目管理系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    {% if current_user.is_admin() %}
+        工时记录管理
+    {% else %}
+        我的工时记录
+    {% endif %}
+</h1>
+
+<!-- 统计卡片 -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number">{{ worklogs|length }}</div>
+        <div class="stat-label">记录总数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">
+            {% set total_hours = worklogs|sum(attribute='hours') or 0 %}
+            {{ "%.1f"|format(total_hours) }}
+        </div>
+        <div class="stat-label">总工时 (小时)</div>
+    </div>
+    {% if current_user.is_developer() %}
+    <div class="stat-card">
+        <div class="stat-number">
+            {% set this_week = worklogs|selectattr('date')|list|length %}
+            {{ this_week }}
+        </div>
+        <div class="stat-label">本周记录</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 工时记录列表 -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="margin: 0; color: #333;">工时记录</h2>
+        {% if current_user.is_developer() %}
+            <a href="{{ url_for('create_worklog') }}" class="btn btn-primary">+ 记录工时</a>
+        {% endif %}
+    </div>
+    
+    {% if worklogs %}
+    <div class="table-container">
+        <table class="project-table">
+            <thead>
+                <tr>
+                    <th>记录ID</th>
+                    {% if current_user.is_admin() %}
+                        <th>开发者</th>
+                    {% endif %}
+                    <th>项目名称</th>
+                    <th>工作日期</th>
+                    <th>工作时长</th>
+                    <th>工作描述</th>
+                    <th>记录时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in worklogs %}
+                <tr>
+                    <td><strong>#{{ log.id }}</strong></td>
+                    {% if current_user.is_admin() %}
+                        <td>{{ log.user.username }}</td>
+                    {% endif %}
+                    <td>{{ log.project.name }}</td>
+                    <td>{{ log.date.strftime('%Y-%m-%d') }}</td>
+                    <td><strong>{{ log.hours }}小时</strong></td>
+                    <td>
+                        {% if log.description %}
+                            {{ log.description[:50] }}
+                            {% if log.description|length > 50 %}...{% endif %}
+                        {% else %}
+                            <span style="color: #999;">无描述</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ log.created_at.strftime('%m-%d %H:%M') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>暂无工时记录</h3>
+        {% if current_user.is_developer() %}
+            <p>还没有记录任何工时，点击上方按钮开始记录工时吧！</p>
+            <a href="{{ url_for('create_worklog') }}" class="btn btn-primary" style="margin-top: 1rem;">记录第一个工时</a>
+        {% else %}
+            <p>系统中暂无工时记录</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

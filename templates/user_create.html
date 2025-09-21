@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}创建用户 - 项目管理系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">创建新用户</h1>
+
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <h2 style="margin-bottom: 1.5rem; color: #333; text-align: center;">用户信息</h2>
+    
+    <form method="post">
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control", placeholder="请输入用户名") }}
+        </div>
+        
+        <div class="form-group">
+            {{ form.password.label(class="form-label") }}
+            {{ form.password(class="form-control", placeholder="请输入密码") }}
+        </div>
+        
+        <div class="form-group">
+            {{ form.role.label(class="form-label") }}
+            {{ form.role(class="form-control") }}
+        </div>
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            {{ form.submit(class="btn btn-primary", style="padding: 0.75rem 2rem; font-size: 1rem;") }}
+            <a href="{{ url_for('index') }}" class="btn btn-secondary" style="padding: 0.75rem 2rem; font-size: 1rem; margin-left: 1rem;">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

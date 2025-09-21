@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}更新项目状态 - {{ project.name }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">更新项目状态</h1>
+
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <h2 style="margin-bottom: 1.5rem; color: #333; text-align: center;">{{ project.name }}</h2>
+    
+    <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+        <p><strong>当前状态:</strong> 
+            <span class="status-badge" style="background-color: {{ project.get_status_color() }}; margin-left: 0.5rem;">
+                {{ project.status }}
+            </span>
+        </p>
+    </div>
+    
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.status.label(class="form-label") }}
+            {{ form.status(class="form-control") }}
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            {{ form.submit(class="btn btn-primary", style="padding: 0.75rem 2rem; font-size: 1rem;") }}
+            <a href="{{ url_for('project_detail', project_id=project.id) }}" class="btn btn-secondary" style="padding: 0.75rem 2rem; font-size: 1rem; margin-left: 1rem;">取消</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.status-badge {
+    color: white;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    display: inline-block;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}项目管理系统{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 顶部导航栏 -->
+        <header class="header">
+            <div class="header-content">
+                <a href="{{ url_for('index') }}" class="logo">项目管理系统</a>
+                <nav class="nav">
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.is_admin() %}
+                            <a href="{{ url_for('index') }}">项目列表</a>
+                            <a href="{{ url_for('create_project') }}">添加项目</a>
+                            <a href="{{ url_for('create_user') }}">创建用户</a>
+                            <a href="{{ url_for('worklog_list') }}">工时记录</a>
+                        {% elif current_user.is_developer() %}
+                            <a href="{{ url_for('worklog_list') }}">我的工时</a>
+                            <a href="{{ url_for('create_worklog') }}">记录工时</a>
+                        {% endif %}
+                        <span style="color: #666; margin-left: 1rem;">欢迎, {{ current_user.username }}</span>
+                        <a href="{{ url_for('logout') }}" style="margin-left: 1rem;">退出</a>
+                    {% endif %}
+                </nav>
+            </div>
+        </header>
+        
+        <!-- 主内容区域 -->
+        <main class="main-content">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-info" style="background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

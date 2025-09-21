@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}项目列表 - 项目管理系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">项目管理</h1>
+
+<!-- 统计卡片 -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number">{{ projects|length }}</div>
+        <div class="stat-label">总项目数</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">
+            {% set active_count = projects|selectattr('start_date')|list|length %}
+            {{ active_count }}
+        </div>
+        <div class="stat-label">进行中项目</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">
+            {% set total_amount = projects|sum(attribute='contract_amount') or 0 %}
+            ¥{{ "%.2f"|format(total_amount) }}
+        </div>
+        <div class="stat-label">合同总金额</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">
+            {% set total_dev_cost = 0 %}
+            {% for p in projects %}
+                {% set total_dev_cost = total_dev_cost + p.get_total_development_cost() %}
+            {% endfor %}
+            ¥{{ "%.2f"|format(total_dev_cost) }}
+        </div>
+        <div class="stat-label">总开发费用</div>
+    </div>
+</div>
+
+<!-- 项目列表 -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="margin: 0; color: #333;">项目列表</h2>
+        <a href="{{ url_for('create_project') }}" class="btn btn-primary">+ 添加项目</a>
+    </div>
+    
+    {% if projects %}
+    <div class="table-container">
+        <table class="project-table">
+            <thead>
+                <tr>
+                    <th>项目ID</th>
+                    <th>项目名称</th>
+                    <th>项目经理</th>
+                    <th>状态</th>
+                    <th>责任工程师</th>
+                    <th>预计完成时间</th>
+                    <th>预计工时</th>
+                    <th>已记录工时</th>
+                    <th>进度</th>
+                    <th>合同金额</th>
+                    <th>开发费用</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in projects %}
+                <tr>
+                    <td><strong>#{{ p.id }}</strong></td>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.manager }}</td>
+                    <td>
+                        <span class="status-badge" style="background-color: {{ p.get_status_color() }}">
+                            {{ p.status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% set developers = p.get_assigned_developers() %}
+                        {% if developers %}
+                            {% for dev in developers %}
+                                <span class="badge" style="background: #667eea; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; margin-right: 0.2rem;">{{ dev.username }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span style="color: #999;">未分配</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.estimated_completion_date %}
+                            {{ p.estimated_completion_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.estimated_hours %}
+                            {{ p.estimated_hours }}小时
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ "%.1f"|format(p.get_total_logged_hours()) }}小时</strong>
+                    </td>
+                    <td>
+                        {% set progress = p.get_progress_percentage() %}
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 60px; height: 8px; background: #e9ecef; border-radius: 4px; margin-right: 0.5rem;">
+                                <div style="width: {{ progress }}%; height: 100%; background: {% if progress >= 100 %}#28a745{% elif progress >= 75 %}#ffc107{% else %}#667eea{% endif %}; border-radius: 4px;"></div>
+                            </div>
+                            <span style="font-size: 0.8rem;">{{ "%.0f"|format(progress) }}%</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if p.contract_amount %}
+                            ¥{{ "%.2f"|format(p.contract_amount) }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('project_detail', project_id=p.id) }}" class="btn btn-primary" style="font-size: 0.8rem; margin-right: 0.5rem;">详情</a>
+                        <a href="{{ url_for('edit_project', project_id=p.id) }}" class="btn btn-secondary" style="font-size: 0.8rem;">编辑</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>暂无项目</h3>
+        <p>还没有创建任何项目，点击上方按钮开始添加项目吧！</p>
+        <a href="{{ url_for('create_project') }}" class="btn btn-primary" style="margin-top: 1rem;">创建第一个项目</a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.badge {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .project-table th,
+    .project-table td {
+        font-size: 0.7rem;
+        padding: 0.3rem;
+    }
+    
+    .badge {
+        font-size: 0.6rem !important;
+        padding: 0.1rem 0.3rem !important;
+    }
+}
+</style>
+{% endblock %}
