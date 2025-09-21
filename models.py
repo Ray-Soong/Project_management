@@ -33,19 +33,52 @@ class Project(db.Model):
     manager = db.Column(db.String(100), nullable=False)
     start_date = db.Column(db.Date, nullable=True)
     planned_end_date = db.Column(db.Date, nullable=True)
-    estimated_completion_date = db.Column(db.Date, nullable=True)  # 预计完成时间
+    contract_signing_date = db.Column(db.Date, nullable=True)  # 合同签订日期
     estimated_hours = db.Column(db.Float, nullable=True)  # 预计开发工时
     contract_amount = db.Column(db.Numeric(14, 2), nullable=True)
-    status = db.Column(db.String(20), nullable=False, default='立项')  # 项目状态
+    status = db.Column(db.String(20), nullable=False, default='启动中')  # 项目状态
+    payment_method = db.Column(db.String(50), nullable=True)  # 付款方式
+    acceptance_date = db.Column(db.Date, nullable=True)  # 验收日期
+    settlement_date = db.Column(db.Date, nullable=True)  # 结算日期
+    invoice_issued = db.Column(db.Boolean, default=False)  # 发票是否开具
+    invoice_date = db.Column(db.Date, nullable=True)  # 发票日期
+    contract_amount_with_tax = db.Column(db.Numeric(14, 2), nullable=True)  # 合同金额含税
+    contract_amount_without_tax = db.Column(db.Numeric(14, 2), nullable=True)  # 合同金额不含税
+    payment_received = db.Column(db.Numeric(14, 2), nullable=True)  # 回款金额
+    remaining_amount = db.Column(db.Numeric(14, 2), nullable=True)  # 剩余金额
+    project_type = db.Column(db.String(50), nullable=True)  # 项目类型
+    customer_name = db.Column(db.String(200), nullable=True)  # 客户名称
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # 项目状态选项
     STATUS_CHOICES = [
-        ('立项', '立项'),
-        ('开发', '开发'),
-        ('结项', '结项'),
-        ('跟进收款', '跟进收款'),
-        ('维护', '维护')
+        ('启动中', '启动中'),
+        ('进行中', '进行中'),
+        ('暂停', '暂停'),
+        ('验收中', '验收中'),
+        ('验收待回款', '验收待回款'),
+        ('结算', '结算'),
+        ('关闭', '关闭')
+    ]
+    
+    # 付款方式选项
+    PAYMENT_METHOD_CHOICES = [
+        ('验收后全款', '验收后全款'),
+        ('分阶段', '分阶段'),
+        ('预付初版', '预付初版'),
+        ('预付终版', '预付终版'),
+        ('待填写', '待填写')
+    ]
+    
+    # 项目类型选项
+    PROJECT_TYPE_CHOICES = [
+        ('物流仿真', '物流仿真'),
+        ('机器人仿真', '机器人仿真'),
+        ('工艺规划', '工艺规划'),
+        ('物流规划', '物流规划'),
+        ('动画', '动画'),
+        ('激光扫描', '激光扫描'),
+        ('数字孪生', '数字孪生')
     ]
 
     def get_total_logged_hours(self):
@@ -63,14 +96,24 @@ class Project(db.Model):
         """获取分配给项目的开发者列表"""
         return [assignment.user for assignment in self.assignments]
     
+    def calculate_remaining_amount(self):
+        """计算剩余金额"""
+        if self.contract_amount_with_tax and self.payment_received:
+            return float(self.contract_amount_with_tax) - float(self.payment_received)
+        elif self.contract_amount_with_tax:
+            return float(self.contract_amount_with_tax)
+        return 0
+    
     def get_status_color(self):
         """根据状态返回对应的颜色"""
         status_colors = {
-            '立项': '#6c757d',      # 灰色
-            '开发': '#007bff',      # 蓝色
-            '结项': '#28a745',      # 绿色
-            '跟进收款': '#ffc107',  # 黄色
-            '维护': '#17a2b8'       # 青色
+            '启动中': '#6c757d',     # 灰色
+            '进行中': '#007bff',     # 蓝色
+            '暂停': '#ffc107',       # 黄色
+            '验收中': '#fd7e14',     # 橙色
+            '验收待回款': '#28a745', # 绿色
+            '结算': '#20c997',       # 青绿色
+            '关闭': '#dc3545'        # 红色
         }
         return status_colors.get(self.status, '#6c757d')
     
@@ -148,3 +191,16 @@ class WorkLog(db.Model):
         if assignment and assignment.hourly_rate:
             return self.hours * assignment.hourly_rate
         return 0
+
+# 阶段付款表
+class StagePayment(db.Model):
+    __tablename__ = "stage_payments"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    stage_name = db.Column(db.String(100), nullable=False)  # 阶段名称
+    payment_amount = db.Column(db.Numeric(14, 2), nullable=False)  # 付款金额
+    payment_date = db.Column(db.Date, nullable=True)  # 入款日期
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # 关系
+    project = db.relationship('Project', backref=db.backref('stage_payments', lazy=True, cascade='all, delete-orphan'))

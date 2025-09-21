@@ -52,6 +52,14 @@
                 <span>{{ project.manager }}</span>
             </div>
             <div class="info-item">
+                <strong>客户名称:</strong>
+                <span>{{ project.customer_name or '未设置' }}</span>
+            </div>
+            <div class="info-item">
+                <strong>项目类型:</strong>
+                <span>{{ project.project_type or '未设置' }}</span>
+            </div>
+            <div class="info-item">
                 <strong>开始日期:</strong>
                 <span>{{ project.start_date.strftime('%Y-%m-%d') if project.start_date else '未设置' }}</span>
             </div>
@@ -59,11 +67,23 @@
                 <strong>计划结束日期:</strong>
                 <span>{{ project.planned_end_date.strftime('%Y-%m-%d') if project.planned_end_date else '未设置' }}</span>
             </div>
+            <div class="info-item">
+                <strong>合同签订日期:</strong>
+                <span>{{ project.contract_signing_date.strftime('%Y-%m-%d') if project.contract_signing_date else '未设置' }}</span>
+            </div>
         </div>
         <div>
             <div class="info-item">
-                <strong>预计完成日期:</strong>
-                <span>{{ project.estimated_completion_date.strftime('%Y-%m-%d') if project.estimated_completion_date else '未设置' }}</span>
+                <strong>验收日期:</strong>
+                <span>{{ project.acceptance_date.strftime('%Y-%m-%d') if project.acceptance_date else '未设置' }}</span>
+            </div>
+            <div class="info-item">
+                <strong>结算日期:</strong>
+                <span>{{ project.settlement_date.strftime('%Y-%m-%d') if project.settlement_date else '未设置' }}</span>
+            </div>
+            <div class="info-item">
+                <strong>发票日期:</strong>
+                <span>{{ project.invoice_date.strftime('%Y-%m-%d') if project.invoice_date else '未设置' }}</span>
             </div>
             <div class="info-item">
                 <strong>预计工时:</strong>
@@ -72,10 +92,6 @@
             <div class="info-item">
                 <strong>已记录工时:</strong>
                 <span><strong>{{ "%.1f"|format(project.get_total_logged_hours()) }}小时</strong></span>
-            </div>
-            <div class="info-item">
-                <strong>合同金额:</strong>
-                <span>¥{{ "%.2f"|format(project.contract_amount) if project.contract_amount else '未设置' }}</span>
             </div>
         </div>
     </div>
@@ -93,6 +109,43 @@
         </div>
     </div>
     {% endif %}
+</div>
+
+<!-- 合同和财务信息 -->
+<div class="card" style="margin-bottom: 2rem;">
+    <h2 style="margin: 0 0 1.5rem 0; color: #333;">合同和财务信息</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+        <div>
+            <div class="info-item">
+                <strong>合同金额含税:</strong>
+                <span>¥{{ "%.2f"|format(project.contract_amount_with_tax) if project.contract_amount_with_tax else '未设置' }}</span>
+            </div>
+            <div class="info-item">
+                <strong>合同金额不含税:</strong>
+                <span>¥{{ "%.2f"|format(project.contract_amount_without_tax) if project.contract_amount_without_tax else '未设置' }}</span>
+            </div>
+            <div class="info-item">
+                <strong>付款方式:</strong>
+                <span>{{ project.payment_method or '未设置' }}</span>
+            </div>
+        </div>
+        <div>
+            <div class="info-item">
+                <strong>回款金额:</strong>
+                <span>¥{{ "%.2f"|format(project.payment_received) if project.payment_received else '0.00' }}</span>
+            </div>
+            <div class="info-item">
+                <strong>剩余金额:</strong>
+                <span>¥{{ "%.2f"|format(project.calculate_remaining_amount()) }}</span>
+            </div>
+            <div class="info-item">
+                <strong>发票是否开具:</strong>
+                <span class="badge" style="background: {% if project.invoice_issued %}#28a745{% else %}#6c757d{% endif %}; color: white; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                    {{ '是' if project.invoice_issued else '否' }}
+                </span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- 分配的开发者 -->

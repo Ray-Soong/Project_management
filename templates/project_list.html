@@ -20,10 +20,15 @@
     </div>
     <div class="stat-card">
         <div class="stat-number">
-            {% set total_amount = projects|sum(attribute='contract_amount') or 0 %}
+            {% set total_amount = 0 %}
+            {% for p in projects %}
+                {% if p.contract_amount_with_tax %}
+                    {% set total_amount = total_amount + p.contract_amount_with_tax %}
+                {% endif %}
+            {% endfor %}
             ¥{{ "%.2f"|format(total_amount) }}
         </div>
-        <div class="stat-label">合同总金额</div>
+        <div class="stat-label">合同总金额(含税)</div>
     </div>
     <div class="stat-card">
         <div class="stat-number">
@@ -52,13 +57,15 @@
                     <th>项目ID</th>
                     <th>项目名称</th>
                     <th>项目经理</th>
+                    <th>客户名称</th>
+                    <th>项目类型</th>
                     <th>状态</th>
                     <th>责任工程师</th>
-                    <th>预计完成时间</th>
+                    <th>合同签订日期</th>
                     <th>预计工时</th>
                     <th>已记录工时</th>
                     <th>进度</th>
-                    <th>合同金额</th>
+                    <th>合同金额(含税)</th>
                     <th>开发费用</th>
                     <th>操作</th>
                 </tr>
@@ -69,6 +76,8 @@
                     <td><strong>#{{ p.id }}</strong></td>
                     <td>{{ p.name }}</td>
                     <td>{{ p.manager }}</td>
+                    <td>{{ p.customer_name or '未设置' }}</td>
+                    <td>{{ p.project_type or '未设置' }}</td>
                     <td>
                         <span class="status-badge" style="background-color: {{ p.get_status_color() }}">
                             {{ p.status }}
@@ -85,8 +94,8 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if p.estimated_completion_date %}
-                            {{ p.estimated_completion_date.strftime('%Y-%m-%d') }}
+                        {% if p.contract_signing_date %}
+                            {{ p.contract_signing_date.strftime('%Y-%m-%d') }}
                         {% else %}
                             <span style="color: #999;">未设置</span>
                         {% endif %}
@@ -111,11 +120,14 @@
                         </div>
                     </td>
                     <td>
-                        {% if p.contract_amount %}
-                            ¥{{ "%.2f"|format(p.contract_amount) }}
+                        {% if p.contract_amount_with_tax %}
+                            ¥{{ "%.2f"|format(p.contract_amount_with_tax) }}
                         {% else %}
                             <span style="color: #999;">未设置</span>
                         {% endif %}
+                    </td>
+                    <td>
+                        ¥{{ "%.2f"|format(p.get_total_development_cost()) }}
                     </td>
                     <td>
                         <a href="{{ url_for('project_detail', project_id=p.id) }}" class="btn btn-primary" style="font-size: 0.8rem; margin-right: 0.5rem;">详情</a>

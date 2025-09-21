@@ -44,9 +44,19 @@ def create_initial_data():
     db.session.commit()
 
 with app.app_context():
-    db.drop_all()
-    db.create_all()
-    create_initial_data()
+    # 注意：在生产环境中，应该使用数据库迁移而不是 drop_all()
+    # 如果数据库不存在，创建它；如果存在，保留数据
+    try:
+        # 尝试查询用户表来检查数据库是否存在
+        User.query.first()
+        print("数据库已存在，保留现有数据")
+    except:
+        # 如果查询失败，说明数据库不存在或表结构不对，重新创建
+        print("创建新的数据库...")
+        db.drop_all()
+        db.create_all()
+        create_initial_data()
+        print("数据库初始化完成")
 
 @app.route("/")
 @login_required
@@ -97,13 +107,28 @@ def create_project():
         project = Project(
             name=form.name.data,
             manager=form.manager.data,
+            customer_name=form.customer_name.data,
+            project_type=form.project_type.data,
             start_date=form.start_date.data,
             planned_end_date=form.planned_end_date.data,
-            estimated_completion_date=form.estimated_completion_date.data,
+            acceptance_date=form.acceptance_date.data,
+            contract_signing_date=form.contract_signing_date.data,
+            settlement_date=form.settlement_date.data,
+            invoice_date=form.invoice_date.data,
             estimated_hours=form.estimated_hours.data,
-            contract_amount=form.contract_amount.data,
-            status=form.status.data,  # 添加状态字段
+            contract_amount_with_tax=form.contract_amount_with_tax.data,
+            contract_amount_without_tax=form.contract_amount_without_tax.data,
+            payment_method=form.payment_method.data,
+            payment_received=form.payment_received.data,
+            invoice_issued=form.invoice_issued.data,
+            status=form.status.data,
         )
+        # 计算剩余金额
+        if project.contract_amount_with_tax and project.payment_received:
+            project.remaining_amount = project.contract_amount_with_tax - project.payment_received
+        elif project.contract_amount_with_tax:
+            project.remaining_amount = project.contract_amount_with_tax
+        
         db.session.add(project)
         db.session.flush()  # 获取项目ID
         
@@ -155,12 +180,29 @@ def edit_project(project_id):
     if form.validate_on_submit():
         project.name = form.name.data
         project.manager = form.manager.data
+        project.customer_name = form.customer_name.data
+        project.project_type = form.project_type.data
         project.start_date = form.start_date.data
         project.planned_end_date = form.planned_end_date.data
-        project.estimated_completion_date = form.estimated_completion_date.data
+        project.acceptance_date = form.acceptance_date.data
+        project.contract_signing_date = form.contract_signing_date.data
+        project.settlement_date = form.settlement_date.data
+        project.invoice_date = form.invoice_date.data
         project.estimated_hours = form.estimated_hours.data
-        project.contract_amount = form.contract_amount.data
-        project.status = form.status.data  # 更新状态字段
+        project.contract_amount_with_tax = form.contract_amount_with_tax.data
+        project.contract_amount_without_tax = form.contract_amount_without_tax.data
+        project.payment_method = form.payment_method.data
+        project.payment_received = form.payment_received.data
+        project.invoice_issued = form.invoice_issued.data
+        project.status = form.status.data
+        
+        # 重新计算剩余金额
+        if project.contract_amount_with_tax and project.payment_received:
+            project.remaining_amount = project.contract_amount_with_tax - project.payment_received
+        elif project.contract_amount_with_tax:
+            project.remaining_amount = project.contract_amount_with_tax
+        else:
+            project.remaining_amount = 0
 
         # 获取当前分配的开发者
         current_assignments = {a.user_id: a for a in project.assignments}
