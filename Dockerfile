@@ -1,45 +1,76 @@
-# 使用官方Python基础镜像
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 # 设置工作目录
 WORKDIR /app
 
-# 设置环境变量
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
-
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    gcc \
     curl \
+    sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制requirements文件并安装Python依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 升级pip到最新版本
+RUN pip install --upgrade pip
 
-# 安装生产环境WSGI服务器
-RUN pip install gunicorn
+# 复制requirements文件
+COPY requirements.txt .
+
+# 创建SQLite优化版的requirements.txt
+RUN cat > requirements_sqlite.txt << 'EOF'
+# Core Flask packages
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.3
+Flask-WTF==1.1.1
+Flask-Migrate==4.0.5
+
+# Database - SQLite优化
+SQLAlchemy==2.0.21
+Alembic==1.12.0
+
+# Web forms
+WTForms==3.0.1
+
+# Security
+Werkzeug==2.3.7
+itsdangerous==2.1.2
+bcrypt==4.0.1
+
+# Utilities
+Jinja2==3.1.2
+MarkupSafe==2.1.3
+click==8.1.7
+python-dotenv==1.0.0
+
+# Production server
+gunicorn==21.2.0
+
+# 日期时间处理
+python-dateutil==2.8.2
+EOF
+
+# 安装Python依赖
+RUN pip install --no-cache-dir -r requirements_sqlite.txt
 
 # 复制应用代码
 COPY . .
 
-# 创建日志目录
-RUN mkdir -p /app/logs
+# 创建必要的目录和SQLite数据库目录
+RUN mkdir -p instance logs static/uploads data
 
-# 创建非root用户
-RUN adduser --disabled-password --gecos '' appuser
-RUN chown -R appuser:appuser /app
-USER appuser
+# 设置权限
+RUN chmod +x *.py
+
+# 初始化SQLite数据库
+RUN touch /app/data/project_mgmt.db && chmod 666 /app/data/project_mgmt.db
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
 
 # 暴露端口
 EXPOSE 5000
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:5000/health || exit 1
-
 # 启动命令
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--worker-class", "sync", "--timeout", "120", "--keep-alive", "5", "--max-requests", "1000", "--max-requests-jitter", "50", "wsgi:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "180", "app:app"]

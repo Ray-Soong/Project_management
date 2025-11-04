@@ -8,36 +8,19 @@
 <!-- 统计卡片 -->
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-number">{{ projects|length }}</div>
+        <div class="stat-number">{{ stats.total_projects }}</div>
         <div class="stat-label">总项目数</div>
     </div>
     <div class="stat-card">
-        <div class="stat-number">
-            {% set active_count = projects|selectattr('start_date')|list|length %}
-            {{ active_count }}
-        </div>
+        <div class="stat-number">{{ stats.active_projects }}</div>
         <div class="stat-label">进行中项目</div>
     </div>
     <div class="stat-card">
-        <div class="stat-number">
-            {% set total_amount = 0 %}
-            {% for p in projects %}
-                {% if p.contract_amount_with_tax %}
-                    {% set total_amount = total_amount + p.contract_amount_with_tax %}
-                {% endif %}
-            {% endfor %}
-            ¥{{ "%.2f"|format(total_amount) }}
-        </div>
+        <div class="stat-number">¥{{ "%.2f"|format(stats.total_contract_amount) }}</div>
         <div class="stat-label">合同总金额(含税)</div>
     </div>
     <div class="stat-card">
-        <div class="stat-number">
-            {% set total_dev_cost = 0 %}
-            {% for p in projects %}
-                {% set total_dev_cost = total_dev_cost + p.get_total_development_cost() %}
-            {% endfor %}
-            ¥{{ "%.2f"|format(total_dev_cost) }}
-        </div>
+        <div class="stat-number">¥{{ "%.2f"|format(stats.total_dev_cost) }}</div>
         <div class="stat-label">总开发费用</div>
     </div>
 </div>

@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}报销详情 - 项目管理系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-receipt"></i> 报销详情</h1>
+    <div class="header-actions">
+        {% if current_user.is_admin() and expense.status == '待审批' %}
+            <a href="{{ url_for('expense_approve', expense_id=expense.id) }}" class="btn btn-success">
+                <i class="fas fa-check"></i> 审批
+            </a>
+        {% endif %}
+        
+        {% if expense.user_id == current_user.id and expense.status == '待审批' %}
+            <a href="{{ url_for('expense_edit', expense_id=expense.id) }}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> 编辑
+            </a>
+        {% endif %}
+        
+        <a href="{{ url_for('expense_list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> 返回列表
+        </a>
+    </div>
+</div>
+
+<div class="expense-detail">
+    <div class="detail-card">
+        <div class="card-header">
+            <h2>{{ expense.title }}</h2>
+            <span class="status-badge" style="background-color: {{ expense.get_status_color() }};">
+                {{ expense.status }}
+            </span>
+        </div>
+        
+        <div class="detail-content">
+            <div class="detail-section">
+                <h3>基本信息</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>申请人：</label>
+                        <span>{{ expense.user.username }}</span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <label>费用类型：</label>
+                        <span>{{ expense.expense_type }}</span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <label>关联项目：</label>
+                        <span>
+                            {% if expense.project %}
+                                {{ expense.project.name }}
+                            {% else %}
+                                <span class="text-muted">无关联项目</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <label>总金额：</label>
+                        <span class="amount">¥{{ "%.2f"|format(expense.total_amount) }}</span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <label>提交时间：</label>
+                        <span>{{ expense.submit_date.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </div>
+                    
+                    {% if expense.approve_date %}
+                    <div class="detail-item">
+                        <label>审批时间：</label>
+                        <span>{{ expense.approve_date.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if expense.approver %}
+                    <div class="detail-item">
+                        <label>审批人：</label>
+                        <span>{{ expense.approver.username }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if expense.description %}
+                <div class="detail-item full-width">
+                    <label>报销说明：</label>
+                    <div class="description">{{ expense.description }}</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="detail-section">
+                <h3>费用明细</h3>
+                {% if expense.items %}
+                    <div class="items-table">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>费用名称</th>
+                                    <th>费用类别</th>
+                                    <th>金额</th>
+                                    <th>费用日期</th>
+                                    <th>说明</th>
+                                    <th>凭证</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in expense.items %}
+                                <tr>
+                                    <td>{{ item.item_name }}</td>
+                                    <td>{{ item.category }}</td>
+                                    <td class="amount">¥{{ "%.2f"|format(item.amount) }}</td>
+                                    <td>{{ item.expense_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ item.description or '-' }}</td>
+                                    <td>
+                                        {% if item.receipt_image %}
+                                            <a href="{{ url_for('static', filename='uploads/' + item.receipt_image) }}" 
+                                               target="_blank" class="receipt-link">
+                                                <i class="fas fa-file-image"></i> 查看凭证
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">无</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">暂无费用明细</p>
+                {% endif %}
+            </div>
+            
+            {% if expense.approve_comment %}
+            <div class="detail-section">
+                <h3>审批意见</h3>
+                <div class="approve-comment">
+                    {{ expense.approve_comment }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if expense.user_id == current_user.id and expense.status == '待审批' %}
+        <div class="card-actions">
+            <form method="POST" action="{{ url_for('expense_delete', expense_id=expense.id) }}" 
+                  onsubmit="return confirm('确定要删除这个报销申请吗？');">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> 删除
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.expense-detail {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.detail-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.card-header {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.status-badge {
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.detail-content {
+    padding: 2rem;
+}
+
+.detail-section {
+    margin-bottom: 2rem;
+}
+
+.detail-section h3 {
+    margin-bottom: 1rem;
+    color: #333;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 0.5rem;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.detail-item {
+    display: flex;
+    margin-bottom: 0.75rem;
+}
+
+.detail-item label {
+    font-weight: 500;
+    color: #555;
+    min-width: 100px;
+    margin-right: 0.5rem;
+}
+
+.detail-item.full-width {
+    grid-column: 1 / -1;
+    flex-direction: column;
+}
+
+.detail-item.full-width label {
+    margin-bottom: 0.5rem;
+}
+
+.description {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    white-space: pre-wrap;
+}
+
+.amount {
+    font-weight: 600;
+    color: #28a745;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+
+.items-table {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+    text-align: left;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+}
+
+.approve-comment {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    padding: 1rem;
+    border-radius: 4px;
+    color: #856404;
+}
+
+.card-actions {
+    padding: 1rem 2rem;
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn:hover {
+    opacity: 0.9;
+}
+
+.receipt-link {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.receipt-link:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .header-actions {
+        justify-content: center;
+    }
+    
+    .detail-content {
+        padding: 1rem;
+    }
+}
+</style>
+{% endblock %}

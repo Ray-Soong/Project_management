@@ -20,9 +20,15 @@
                             <a href="{{ url_for('create_project') }}">添加项目</a>
                             <a href="{{ url_for('create_user') }}">创建用户</a>
                             <a href="{{ url_for('worklog_list') }}">工时记录</a>
+                            <a href="{{ url_for('expense_list') }}">报销管理</a>
+                            <a href="{{ url_for('task_list') }}">任务管理</a>
+                            <a href="{{ url_for('project_expense_records') }}">费用记录</a>
                         {% elif current_user.is_developer() %}
                             <a href="{{ url_for('worklog_list') }}">我的工时</a>
                             <a href="{{ url_for('create_worklog') }}">记录工时</a>
+                            <a href="{{ url_for('expense_list') }}">我的报销</a>
+                            <a href="{{ url_for('expense_create') }}">申请报销</a>
+                            <a href="{{ url_for('task_list') }}">我的任务</a>
                         {% endif %}
                         <span style="color: #666; margin-left: 1rem;">欢迎, {{ current_user.username }}</span>
                         <a href="{{ url_for('logout') }}" style="margin-left: 1rem;">退出</a>

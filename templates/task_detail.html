@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}任务详情 - 项目管理系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-task"></i> 任务详情</h1>
+    <div class="header-actions">
+        {% if (task.assigned_to == current_user.id or current_user.is_admin()) and task.status != '已完成' and task.status != '已取消' %}
+            <a href="{{ url_for('task_update', task_id=task.id) }}" class="btn btn-success">
+                <i class="fas fa-edit"></i> 更新状态
+            </a>
+        {% endif %}
+        
+        {% if task.expense_id %}
+            <a href="{{ url_for('expense_detail', expense_id=task.expense_id) }}" class="btn btn-info">
+                <i class="fas fa-receipt"></i> 查看报销
+            </a>
+        {% endif %}
+        
+        <a href="{{ url_for('task_list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> 返回列表
+        </a>
+    </div>
+</div>
+
+<div class="task-detail">
+    <div class="detail-card">
+        <div class="card-header">
+            <h2>{{ task.title }}</h2>
+            <div class="badges">
+                <span class="priority-badge" style="background-color: {{ task.get_priority_color() }};">
+                    {{ task.priority }}
+                </span>
+                <span class="status-badge" style="background-color: {{ task.get_status_color() }};">
+                    {{ task.status }}
+                </span>
+            </div>
+        </div>
+        
+        <div class="detail-content">
+            <div class="detail-section">
+                <h3>任务信息</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>任务类型：</label>
+                        <span>
+                            {% if task.task_type == 'expense_process' %}
+                                报销处理
+                            {% else %}
+                                {{ task.task_type }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <label>分配给：</label>
+                        <span>{{ task.assigned_user.username }} ({{ task.assigned_user.role }})</span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <label>分配人：</label>
+                        <span>{{ task.assigner.username }}</span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <label>创建时间：</label>
+                        <span>{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </div>
+                    
+                    {% if task.due_date %}
+                    <div class="detail-item">
+                        <label>截止日期：</label>
+                        <span>{{ task.due_date.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if task.completed_at %}
+                    <div class="detail-item">
+                        <label>完成时间：</label>
+                        <span>{{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if task.description %}
+                <div class="detail-item full-width">
+                    <label>任务描述：</label>
+                    <div class="description">{{ task.description }}</div>
+                </div>
+                {% endif %}
+            </div>
+            
+            {% if task.expense %}
+            <div class="detail-section">
+                <h3>关联报销</h3>
+                <div class="expense-summary">
+                    <div class="summary-item">
+                        <label>报销标题：</label>
+                        <span>{{ task.expense.title }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <label>申请人：</label>
+                        <span>{{ task.expense.user.username }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <label>总金额：</label>
+                        <span class="amount">¥{{ "%.2f"|format(task.expense.total_amount) }}</span>
+                    </div>
+                    <div class="summary-item">
+                        <label>报销状态：</label>
+                        <span class="status">{{ task.expense.status }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.task-detail {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.detail-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.card-header {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.badges {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.status-badge,
+.priority-badge {
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.detail-content {
+    padding: 2rem;
+}
+
+.detail-section {
+    margin-bottom: 2rem;
+}
+
+.detail-section h3 {
+    margin-bottom: 1rem;
+    color: #333;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 0.5rem;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.detail-item {
+    display: flex;
+    margin-bottom: 0.75rem;
+}
+
+.detail-item label {
+    font-weight: 500;
+    color: #555;
+    min-width: 100px;
+    margin-right: 0.5rem;
+}
+
+.detail-item.full-width {
+    grid-column: 1 / -1;
+    flex-direction: column;
+}
+
+.detail-item.full-width label {
+    margin-bottom: 0.5rem;
+}
+
+.description {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    white-space: pre-wrap;
+}
+
+.expense-summary {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+}
+
+.summary-item {
+    display: flex;
+    margin-bottom: 0.5rem;
+}
+
+.summary-item label {
+    font-weight: 500;
+    color: #555;
+    min-width: 100px;
+    margin-right: 0.5rem;
+}
+
+.amount {
+    font-weight: 600;
+    color: #28a745;
+}
+
+.status {
+    font-weight: 500;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn:hover {
+    opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .header-actions {
+        justify-content: center;
+    }
+    
+    .detail-content {
+        padding: 1rem;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .badges {
+        justify-content: center;
+    }
+}
+</style>
+{% endblock %}

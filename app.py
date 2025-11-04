@@ -2,6 +2,7 @@ from flask import Flask, jsonify, render_template, redirect, url_for, request, f
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from datetime import datetime
 import logging
+import os
 
 # 设置日志
 logging.basicConfig(level=logging.DEBUG)
@@ -12,8 +13,17 @@ app.config["SECRET_KEY"] = "yoursecret"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///projects.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-from models import db, Project, User, WorkLog, ProjectAssignment
-from forms import ProjectForm, LoginForm, UserForm, WorkLogForm, ProjectStatusForm
+# 文件上传配置
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# 确保上传目录存在
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+from models import db, Project, User, WorkLog, ProjectAssignment, Expense, ExpenseItem, Task, ProjectExpenseRecord
+from forms import ProjectForm, LoginForm, UserForm, WorkLogForm, ProjectStatusForm, ExpenseForm, ExpenseApprovalForm, TaskForm, TaskUpdateForm
 
 # 登录管理器
 login_manager = LoginManager()
@@ -63,7 +73,27 @@ with app.app_context():
 def index():
     if current_user.is_admin():
         projects = Project.query.all()
-        return render_template("project_list.html", projects=projects)
+        
+        # 计算统计数据
+        total_contract_amount = sum(
+            float(p.contract_amount_with_tax) if p.contract_amount_with_tax else 0 
+            for p in projects
+        )
+        
+        total_dev_cost = sum(
+            p.get_total_development_cost() for p in projects
+        )
+        
+        active_projects_count = len([p for p in projects if p.status in ['启动中', '进行中']])
+        
+        stats = {
+            'total_projects': len(projects),
+            'active_projects': active_projects_count,
+            'total_contract_amount': total_contract_amount,
+            'total_dev_cost': total_dev_cost
+        }
+        
+        return render_template("project_list.html", projects=projects, stats=stats)
     elif current_user.is_developer():
         return redirect(url_for('worklog_list'))
     else:
@@ -339,6 +369,331 @@ def create_worklog():
     
     return render_template("worklog_create.html", form=form)
 
+def allowed_file(filename):
+    """检查文件扩展名是否允许"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# 报销相关路由
+@app.route("/expenses")
+@login_required
+def expense_list():
+    """报销列表"""
+    if current_user.is_admin():
+        # 管理员可以看到所有报销
+        expenses = Expense.query.order_by(Expense.submit_date.desc()).all()
+    else:
+        # 普通用户只能看到自己的报销
+        expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.submit_date.desc()).all()
+    
+    return render_template("expense_list.html", expenses=expenses)
+
+@app.route("/expense/create", methods=["GET", "POST"])
+@login_required
+def expense_create():
+    """创建报销"""
+    form = ExpenseForm()
+    
+    # 设置项目选择列表
+    if current_user.is_admin():
+        projects = Project.query.all()
+    else:
+        # 获取用户被分配的项目
+        assigned_projects = Project.query.join(ProjectAssignment).filter(
+            ProjectAssignment.user_id == current_user.id
+        ).all()
+        projects = assigned_projects
+    
+    form.project_id.choices = [('', '请选择项目（售前费用可不选）')] + [(p.id, p.name) for p in projects]
+    
+    # 如果从项目页面跳转过来，预选择项目
+    if request.method == 'GET' and request.args.get('project_id'):
+        try:
+            preselected_project_id = int(request.args.get('project_id'))
+            # 验证用户是否有权限选择这个项目
+            if current_user.is_admin() or any(p.id == preselected_project_id for p in projects):
+                form.project_id.data = preselected_project_id
+        except (ValueError, TypeError):
+            pass  # 忽略无效的project_id
+    
+    if form.validate_on_submit():
+        # 处理文件上传
+        receipt_filename = None
+        if form.receipt_image.data:
+            file = form.receipt_image.data
+            if file and allowed_file(file.filename):
+                import uuid
+                import os
+                from werkzeug.utils import secure_filename
+                
+                # 生成唯一文件名
+                file_ext = os.path.splitext(secure_filename(file.filename))[1]
+                receipt_filename = f"{uuid.uuid4().hex}{file_ext}"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], receipt_filename)
+                file.save(file_path)
+        
+        # 创建报销单
+        expense = Expense(
+            user_id=current_user.id,
+            project_id=form.project_id.data if form.project_id.data else None,
+            title=form.title.data,
+            expense_type=form.expense_type.data,
+            total_amount=form.amount.data,
+            description=form.description.data
+        )
+        db.session.add(expense)
+        db.session.flush()  # 获取expense.id
+        
+        # 创建费用明细
+        expense_item = ExpenseItem(
+            expense_id=expense.id,
+            item_name=form.item_name.data,
+            category=form.category.data,
+            amount=form.amount.data,
+            expense_date=form.expense_date.data,
+            description=form.item_description.data,
+            receipt_image=receipt_filename
+        )
+        db.session.add(expense_item)
+        
+        db.session.commit()
+        flash("报销申请提交成功，等待审批")
+        return redirect(url_for("expense_list"))
+    
+    return render_template("expense_create.html", form=form)
+
+@app.route("/expense/<int:expense_id>")
+@login_required
+def expense_detail(expense_id):
+    """报销详情"""
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # 权限检查：用户只能查看自己的报销，管理员可以查看所有
+    if not current_user.is_admin() and expense.user_id != current_user.id:
+        flash("您没有权限查看此报销")
+        return redirect(url_for("expense_list"))
+    
+    return render_template("expense_detail.html", expense=expense)
+
+@app.route("/expense/<int:expense_id>/approve", methods=["GET", "POST"])
+@login_required
+def expense_approve(expense_id):
+    """审批报销"""
+    if not current_user.is_admin():
+        flash("您没有权限审批报销")
+        return redirect(url_for("expense_list"))
+    
+    expense = Expense.query.get_or_404(expense_id)
+    
+    if expense.status != '待审批':
+        flash("该报销已经审批过了")
+        return redirect(url_for("expense_detail", expense_id=expense_id))
+    
+    form = ExpenseApprovalForm()
+    
+    # 设置同事选择列表（除了当前用户）
+    all_users = User.query.filter(User.id != current_user.id).all()
+    form.assign_to.choices = [('', '不分配给其他人')] + [(u.id, f"{u.username} ({u.role})") for u in all_users]
+    
+    if form.validate_on_submit():
+        expense.status = form.status.data
+        expense.approve_comment = form.approve_comment.data
+        expense.approver_id = current_user.id
+        expense.approve_date = datetime.utcnow()
+        
+        # 如果审批通过
+        if form.status.data == '已批准':
+            # 1. 自动将费用记录到对应项目中
+            if expense.project_id:
+                for item in expense.items:
+                    project_record = ProjectExpenseRecord(
+                        project_id=expense.project_id,
+                        expense_id=expense.id,
+                        category=item.category,
+                        amount=item.amount,
+                        description=f"报销项目：{expense.title} - {item.item_name}",
+                        recorded_by=current_user.id
+                    )
+                    db.session.add(project_record)
+            
+            # 2. 如果选择了分配给同事，创建任务
+            if form.assign_to.data:
+                assigned_user = User.query.get(form.assign_to.data)
+                task = Task(
+                    title=f"处理报销：{expense.title}",
+                    description=f"报销金额：¥{expense.total_amount}\n报销说明：{expense.description or '无'}\n审批意见：{form.approve_comment.data or '无特殊说明'}",
+                    task_type='expense_process',
+                    assigned_to=form.assign_to.data,
+                    assigned_by=current_user.id,
+                    expense_id=expense.id,
+                    priority='普通'
+                )
+                db.session.add(task)
+                flash(f"报销已批准，并已分配给 {assigned_user.username} 处理")
+            else:
+                flash("报销已批准")
+        else:
+            flash("报销已拒绝")
+        
+        db.session.commit()
+        return redirect(url_for("expense_detail", expense_id=expense_id))
+    
+    return render_template("expense_approve.html", form=form, expense=expense)
+
+@app.route("/expense/<int:expense_id>/edit", methods=["GET", "POST"])
+@login_required
+def expense_edit(expense_id):
+    """编辑报销（只有待审批状态可以编辑）"""
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # 权限检查
+    if expense.user_id != current_user.id:
+        flash("您只能编辑自己的报销")
+        return redirect(url_for("expense_list"))
+    
+    if expense.status != '待审批':
+        flash("只有待审批的报销可以编辑")
+        return redirect(url_for("expense_detail", expense_id=expense_id))
+    
+    form = ExpenseForm(obj=expense)
+    
+    # 设置项目选择列表
+    if current_user.is_admin():
+        projects = Project.query.all()
+    else:
+        assigned_projects = Project.query.join(ProjectAssignment).filter(
+            ProjectAssignment.user_id == current_user.id
+        ).all()
+        projects = assigned_projects
+    
+    form.project_id.choices = [('', '请选择项目（售前费用可不选）')] + [(p.id, p.name) for p in projects]
+    
+    # 设置表单的默认值
+    if not form.is_submitted():
+        form.project_id.data = expense.project_id if expense.project_id else ''
+    
+    # 填充表单数据
+    if expense.items:
+        first_item = expense.items[0]
+        if not form.is_submitted():
+            form.item_name.data = first_item.item_name
+            form.category.data = first_item.category
+            form.amount.data = first_item.amount
+            form.expense_date.data = first_item.expense_date
+            form.item_description.data = first_item.description
+    
+    if form.validate_on_submit():
+        # 更新报销单
+        expense.title = form.title.data
+        expense.expense_type = form.expense_type.data
+        expense.project_id = form.project_id.data if form.project_id.data else None
+        expense.total_amount = form.amount.data
+        expense.description = form.description.data
+        
+        # 更新费用明细（简化处理，只更新第一条）
+        if expense.items:
+            first_item = expense.items[0]
+            first_item.item_name = form.item_name.data
+            first_item.category = form.category.data
+            first_item.amount = form.amount.data
+            first_item.expense_date = form.expense_date.data
+            first_item.description = form.item_description.data
+        
+        db.session.commit()
+        flash("报销修改成功")
+        return redirect(url_for("expense_detail", expense_id=expense_id))
+    
+    return render_template("expense_edit.html", form=form, expense=expense)
+
+@app.route("/expense/<int:expense_id>/delete", methods=["POST"])
+@login_required
+def expense_delete(expense_id):
+    """删除报销（只有待审批状态可以删除）"""
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # 权限检查
+    if expense.user_id != current_user.id and not current_user.is_admin():
+        flash("您没有权限删除此报销")
+        return redirect(url_for("expense_list"))
+    
+    if expense.status != '待审批':
+        flash("只有待审批的报销可以删除")
+        return redirect(url_for("expense_detail", expense_id=expense_id))
+    
+    db.session.delete(expense)
+    db.session.commit()
+    flash("报销已删除")
+    return redirect(url_for("expense_list"))
+
+# 任务管理路由
+@app.route("/tasks")
+@login_required
+def task_list():
+    """任务列表"""
+    if current_user.is_admin():
+        # 管理员可以看到所有任务
+        tasks = Task.query.order_by(Task.created_at.desc()).all()
+    else:
+        # 普通用户只能看到分配给自己的任务
+        tasks = Task.query.filter_by(assigned_to=current_user.id).order_by(Task.created_at.desc()).all()
+    
+    return render_template("task_list.html", tasks=tasks)
+
+@app.route("/task/<int:task_id>")
+@login_required
+def task_detail(task_id):
+    """任务详情"""
+    task = Task.query.get_or_404(task_id)
+    
+    # 权限检查：用户只能查看分配给自己的任务，管理员可以查看所有
+    if not current_user.is_admin() and task.assigned_to != current_user.id:
+        flash("您没有权限查看此任务")
+        return redirect(url_for("task_list"))
+    
+    return render_template("task_detail.html", task=task)
+
+@app.route("/task/<int:task_id>/update", methods=["GET", "POST"])
+@login_required
+def task_update(task_id):
+    """更新任务状态"""
+    task = Task.query.get_or_404(task_id)
+    
+    # 权限检查：只有任务分配者可以更新状态
+    if task.assigned_to != current_user.id and not current_user.is_admin():
+        flash("您没有权限更新此任务")
+        return redirect(url_for("task_list"))
+    
+    form = TaskUpdateForm()
+    
+    if form.validate_on_submit():
+        task.status = form.status.data
+        if form.status.data == '已完成':
+            task.completed_at = datetime.utcnow()
+        
+        # 如果是报销处理任务且状态改为已完成，可以添加额外的处理逻辑
+        if task.task_type == 'expense_process' and form.status.data == '已完成':
+            # 可以在这里添加费用处理完成后的逻辑
+            pass
+        
+        db.session.commit()
+        flash("任务状态已更新")
+        return redirect(url_for("task_detail", task_id=task_id))
+    
+    # 设置当前状态作为默认值
+    form.status.data = task.status
+    
+    return render_template("task_update.html", form=form, task=task)
+
+@app.route("/expenses/project-records")
+@login_required
+def project_expense_records():
+    """项目费用记录"""
+    if not current_user.is_admin():
+        flash("您没有权限查看项目费用记录")
+        return redirect(url_for("index"))
+    
+    records = ProjectExpenseRecord.query.join(Project).order_by(ProjectExpenseRecord.recorded_at.desc()).all()
+    return render_template("project_expense_records.html", records=records)
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5005, debug=True)

@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}申请报销 - 项目管理系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-plus"></i> 申请报销</h1>
+    <a href="{{ url_for('expense_list') }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> 返回列表
+    </a>
+</div>
+
+<div class="form-container">
+    <form method="POST" enctype="multipart/form-data" class="expense-form">
+        {{ form.hidden_tag() }}
+        
+        <div class="form-section">
+            <h3>基本信息</h3>
+            
+            <div class="form-group">
+                {{ form.title.label(class="form-label") }}
+                {{ form.title(class="form-control") }}
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.expense_type.label(class="form-label") }}
+                    {{ form.expense_type(class="form-control") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.project_id.label(class="form-label") }}
+                    {{ form.project_id(class="form-control") }}
+                </div>
+            </div>
+            
+            <div class="form-group">
+                {{ form.description.label(class="form-label") }}
+                {{ form.description(class="form-control", rows="3") }}
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>费用明细</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.item_name.label(class="form-label") }}
+                    {{ form.item_name(class="form-control") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.category.label(class="form-label") }}
+                    {{ form.category(class="form-control") }}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.amount.label(class="form-label") }}
+                    {{ form.amount(class="form-control", step="0.01") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.expense_date.label(class="form-label") }}
+                    {{ form.expense_date(class="form-control") }}
+                </div>
+            </div>
+            
+            <div class="form-group">
+                {{ form.item_description.label(class="form-label") }}
+                {{ form.item_description(class="form-control", rows="3") }}
+            </div>
+            
+            <div class="form-group">
+                {{ form.receipt_image.label(class="form-label") }}
+                {{ form.receipt_image(class="form-control", accept="image/*,.pdf") }}
+                <small class="form-text">支持上传图片或PDF格式的发票凭证</small>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            {{ form.submit(class="btn btn-primary") }}
+            <a href="{{ url_for('expense_list') }}" class="btn btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.form-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.expense-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-section {
+    margin-bottom: 2rem;
+}
+
+.form-section h3 {
+    margin-bottom: 1rem;
+    color: #333;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 0.5rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #555;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.form-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.form-actions {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn:hover {
+    opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-container {
+        margin: 0 1rem;
+    }
+    
+    .expense-form {
+        padding: 1rem;
+    }
+}
+</style>
+{% endblock %}

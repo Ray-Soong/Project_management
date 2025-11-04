@@ -204,3 +204,152 @@ class StagePayment(db.Model):
     
     # 关系
     project = db.relationship('Project', backref=db.backref('stage_payments', lazy=True, cascade='all, delete-orphan'))
+
+# 报销单表
+class Expense(db.Model):
+    __tablename__ = "expenses"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True)  # 可关联项目，也可以是售前费用
+    title = db.Column(db.String(200), nullable=False)  # 报销标题
+    expense_type = db.Column(db.String(50), nullable=False)  # 费用类型：项目费用、售前费用
+    total_amount = db.Column(db.Numeric(10, 2), nullable=False)  # 总金额
+    status = db.Column(db.String(20), nullable=False, default='待审批')  # 状态：待审批、已批准、已拒绝
+    submit_date = db.Column(db.DateTime, default=datetime.utcnow)  # 提交日期
+    approve_date = db.Column(db.DateTime, nullable=True)  # 审批日期
+    approver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # 审批人
+    approve_comment = db.Column(db.Text, nullable=True)  # 审批意见
+    description = db.Column(db.Text, nullable=True)  # 报销说明
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # 费用类型选项
+    EXPENSE_TYPE_CHOICES = [
+        ('项目费用', '项目费用'),
+        ('售前费用', '售前费用'),
+        ('其他费用', '其他费用')
+    ]
+    
+    # 状态选项
+    STATUS_CHOICES = [
+        ('待审批', '待审批'),
+        ('已批准', '已批准'),
+        ('已拒绝', '已拒绝')
+    ]
+    
+    # 关系
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('expenses', lazy=True))
+    project = db.relationship('Project', backref=db.backref('expenses', lazy=True))
+    approver = db.relationship('User', foreign_keys=[approver_id], backref=db.backref('approved_expenses', lazy=True))
+    
+    def get_status_color(self):
+        """根据状态返回对应的颜色"""
+        status_colors = {
+            '待审批': '#ffc107',     # 黄色
+            '已批准': '#28a745',     # 绿色
+            '已拒绝': '#dc3545'      # 红色
+        }
+        return status_colors.get(self.status, '#6c757d')
+
+# 报销明细表
+class ExpenseItem(db.Model):
+    __tablename__ = "expense_items"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    expense_id = db.Column(db.Integer, db.ForeignKey('expenses.id'), nullable=False)
+    item_name = db.Column(db.String(200), nullable=False)  # 费用明细名称
+    category = db.Column(db.String(50), nullable=False)  # 费用类别
+    amount = db.Column(db.Numeric(10, 2), nullable=False)  # 费用金额
+    receipt_image = db.Column(db.String(200), nullable=True)  # 发票/凭证照片路径
+    description = db.Column(db.Text, nullable=True)  # 费用说明
+    expense_date = db.Column(db.Date, nullable=False)  # 费用发生日期
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # 费用类别选项
+    CATEGORY_CHOICES = [
+        ('交通费', '交通费'),
+        ('住宿费', '住宿费'),
+        ('餐饮费', '餐饮费'),
+        ('通讯费', '通讯费'),
+        ('材料费', '材料费'),
+        ('设备费', '设备费'),
+        ('差旅费', '差旅费'),
+        ('招待费', '招待费'),
+        ('培训费', '培训费'),
+        ('其他费用', '其他费用')
+    ]
+    
+    # 关系
+    expense = db.relationship('Expense', backref=db.backref('items', lazy=True, cascade='all, delete-orphan'))
+
+# 任务分配表
+class Task(db.Model):
+    __tablename__ = "tasks"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title = db.Column(db.String(200), nullable=False)  # 任务标题
+    description = db.Column(db.Text, nullable=True)  # 任务描述
+    task_type = db.Column(db.String(50), nullable=False)  # 任务类型：expense_process（报销处理）等
+    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # 分配给谁
+    assigned_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # 谁分配的
+    expense_id = db.Column(db.Integer, db.ForeignKey('expenses.id'), nullable=True)  # 关联的报销ID
+    status = db.Column(db.String(20), nullable=False, default='待处理')  # 待处理、处理中、已完成、已取消
+    priority = db.Column(db.String(20), nullable=False, default='普通')  # 紧急、高、普通、低
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    due_date = db.Column(db.DateTime, nullable=True)  # 截止日期
+    completed_at = db.Column(db.DateTime, nullable=True)  # 完成时间
+    
+    # 任务状态选项
+    STATUS_CHOICES = [
+        ('待处理', '待处理'),
+        ('处理中', '处理中'),
+        ('已完成', '已完成'),
+        ('已取消', '已取消')
+    ]
+    
+    # 优先级选项
+    PRIORITY_CHOICES = [
+        ('紧急', '紧急'),
+        ('高', '高'),
+        ('普通', '普通'),
+        ('低', '低')
+    ]
+    
+    # 关系
+    assigned_user = db.relationship('User', foreign_keys=[assigned_to], backref=db.backref('assigned_tasks', lazy=True))
+    assigner = db.relationship('User', foreign_keys=[assigned_by], backref=db.backref('created_tasks', lazy=True))
+    expense = db.relationship('Expense', backref=db.backref('tasks', lazy=True))
+    
+    def get_status_color(self):
+        """根据状态返回对应的颜色"""
+        status_colors = {
+            '待处理': '#ffc107',     # 黄色
+            '处理中': '#007bff',     # 蓝色
+            '已完成': '#28a745',     # 绿色
+            '已取消': '#6c757d'      # 灰色
+        }
+        return status_colors.get(self.status, '#6c757d')
+    
+    def get_priority_color(self):
+        """根据优先级返回对应的颜色"""
+        priority_colors = {
+            '紧急': '#dc3545',       # 红色
+            '高': '#fd7e14',         # 橙色
+            '普通': '#28a745',       # 绿色
+            '低': '#6c757d'          # 灰色
+        }
+        return priority_colors.get(self.priority, '#6c757d')
+
+# 项目费用记录表
+class ProjectExpenseRecord(db.Model):
+    __tablename__ = "project_expense_records"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    expense_id = db.Column(db.Integer, db.ForeignKey('expenses.id'), nullable=True)  # 改为可为空
+    category = db.Column(db.String(50), nullable=False)  # 费用类别
+    amount = db.Column(db.Numeric(10, 2), nullable=False)  # 费用金额
+    description = db.Column(db.Text, nullable=True)  # 费用说明
+    recorded_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # 记录人
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)  # 记录时间
+    
+    # 关系
+    project = db.relationship('Project', backref=db.backref('expense_records', lazy=True))
+    expense = db.relationship('Expense', backref=db.backref('project_records', lazy=True))
+    recorder = db.relationship('User', backref=db.backref('recorded_expenses', lazy=True))

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}报销列表 - 项目管理系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-receipt"></i> 报销列表</h1>
+    <div class="header-actions">
+        {% if not current_user.is_admin() %}
+            <a href="{{ url_for('expense_create') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 申请报销
+            </a>
+        {% endif %}
+        {% if current_user.is_admin() %}
+            <a href="{{ url_for('project_expense_records') }}" class="btn btn-info">
+                <i class="fas fa-chart-line"></i> 费用记录
+            </a>
+            <a href="{{ url_for('expense_create') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 新建报销
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if expenses %}
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>标题</th>
+                        <th>申请人</th>
+                        <th>费用类型</th>
+                        <th>关联项目</th>
+                        <th>总金额</th>
+                        <th>状态</th>
+                        <th>提交时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in expenses %}
+                    <tr>
+                        <td>{{ expense.id }}</td>
+                        <td>{{ expense.title }}</td>
+                        <td>{{ expense.user.username }}</td>
+                        <td>{{ expense.expense_type }}</td>
+                        <td>
+                            {% if expense.project %}
+                                {{ expense.project.name }}
+                            {% else %}
+                                <span class="text-muted">无</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">¥{{ "%.2f"|format(expense.total_amount) }}</td>
+                        <td>
+                            <span class="status-badge" style="background-color: {{ expense.get_status_color() }};">
+                                {{ expense.status }}
+                            </span>
+                        </td>
+                        <td>{{ expense.submit_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('expense_detail', expense_id=expense.id) }}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> 查看
+                                </a>
+                                
+                                {% if current_user.is_admin() and expense.status == '待审批' %}
+                                    <a href="{{ url_for('expense_approve', expense_id=expense.id) }}" 
+                                       class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-check"></i> 审批
+                                    </a>
+                                {% endif %}
+                                
+                                {% if expense.user_id == current_user.id and expense.status == '待审批' %}
+                                    <a href="{{ url_for('expense_edit', expense_id=expense.id) }}" 
+                                       class="btn btn-sm btn-outline-warning">
+                                        <i class="fas fa-edit"></i> 编辑
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% else %}
+    <div class="empty-state">
+        <i class="fas fa-receipt" style="font-size: 4rem; color: #ddd;"></i>
+        <h3>暂无报销记录</h3>
+        <p>还没有任何报销申请</p>
+        {% if not current_user.is_admin() %}
+            <a href="{{ url_for('expense_create') }}" class="btn btn-primary">申请报销</a>
+        {% endif %}
+    </div>
+{% endif %}
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.status-badge {
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.btn-group {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+    text-align: left;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+}
+
+.btn {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-outline-primary {
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.btn-outline-success {
+    border-color: #28a745;
+    color: #28a745;
+}
+
+.btn-outline-warning {
+    border-color: #ffc107;
+    color: #ffc107;
+}
+
+.btn:hover {
+    opacity: 0.9;
+}
+</style>
+{% endblock %}

@@ -7,6 +7,9 @@
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h1 class="page-title">项目详情 - {{ project.name }}</h1>
         <div>
+            <a href="{{ url_for('expense_create') }}?project_id={{ project.id }}" class="btn btn-success">
+                <i class="fas fa-receipt"></i> 创建报销
+            </a>
             <a href="{{ url_for('edit_project', project_id=project.id) }}" class="btn btn-warning">编辑项目</a>
             <a href="{{ url_for('update_project_status', project_id=project.id) }}" class="btn btn-info">更新状态</a>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">返回列表</a>

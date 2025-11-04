@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, DateField, DecimalField, SubmitField, PasswordField, SelectField, TextAreaField, FloatField, SelectMultipleField, BooleanField
+from wtforms import StringField, DateField, DecimalField, SubmitField, PasswordField, SelectField, TextAreaField, FloatField, SelectMultipleField, BooleanField, FieldList, FormField, FileField
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 from wtforms.widgets import CheckboxInput, ListWidget
 from models import Project
@@ -97,3 +97,89 @@ class StagePaymentForm(FlaskForm):
     payment_amount = DecimalField("付款金额", validators=[DataRequired(), NumberRange(min=0)], places=2)
     payment_date = DateField("入款日期", format="%Y-%m-%d", validators=[Optional()])
     submit = SubmitField("保存")
+
+class ExpenseItemForm(FlaskForm):
+    """费用明细表单"""
+    item_name = StringField("费用名称", validators=[DataRequired()])
+    category = SelectField("费用类别", choices=[
+        ('交通费', '交通费'),
+        ('住宿费', '住宿费'),
+        ('餐饮费', '餐饮费'),
+        ('通讯费', '通讯费'),
+        ('材料费', '材料费'),
+        ('设备费', '设备费'),
+        ('差旅费', '差旅费'),
+        ('招待费', '招待费'),
+        ('培训费', '培训费'),
+        ('其他费用', '其他费用')
+    ], validators=[DataRequired()])
+    amount = DecimalField("金额", validators=[DataRequired(), NumberRange(min=0)], places=2)
+    expense_date = DateField("费用发生日期", validators=[DataRequired()], format="%Y-%m-%d")
+    description = TextAreaField("费用说明")
+
+class ExpenseForm(FlaskForm):
+    """报销表单"""
+    title = StringField("报销标题", validators=[DataRequired()])
+    expense_type = SelectField("费用类型", choices=[
+        ('项目费用', '项目费用'),
+        ('售前费用', '售前费用'),
+        ('其他费用', '其他费用')
+    ], validators=[DataRequired()])
+    project_id = SelectField("关联项目", coerce=lambda x: int(x) if x and x != '' else None, validators=[Optional()])
+    description = TextAreaField("报销说明")
+    
+    # 费用明细
+    item_name = StringField("费用名称", validators=[DataRequired()])
+    category = SelectField("费用类别", choices=[
+        ('交通费', '交通费'),
+        ('住宿费', '住宿费'),
+        ('餐饮费', '餐饮费'),
+        ('通讯费', '通讯费'),
+        ('材料费', '材料费'),
+        ('设备费', '设备费'),
+        ('差旅费', '差旅费'),
+        ('招待费', '招待费'),
+        ('培训费', '培训费'),
+        ('其他费用', '其他费用')
+    ], validators=[DataRequired()])
+    amount = DecimalField("金额", validators=[DataRequired(), NumberRange(min=0)], places=2)
+    expense_date = DateField("费用发生日期", validators=[DataRequired()], format="%Y-%m-%d")
+    item_description = TextAreaField("费用说明")
+    receipt_image = FileField("上传发票/凭证")
+    
+    submit = SubmitField("提交报销")
+
+class ExpenseApprovalForm(FlaskForm):
+    """报销审批表单"""
+    status = SelectField("审批结果", choices=[
+        ('已批准', '已批准'),
+        ('已拒绝', '已拒绝')
+    ], validators=[DataRequired()])
+    assign_to = SelectField("分配给同事处理", coerce=lambda x: int(x) if x and x != '' else None, validators=[Optional()])
+    approve_comment = TextAreaField("审批意见")
+    submit = SubmitField("提交审批")
+
+class TaskForm(FlaskForm):
+    """任务表单"""
+    title = StringField("任务标题", validators=[DataRequired()])
+    description = TextAreaField("任务描述")
+    assigned_to = SelectField("分配给", coerce=int, validators=[DataRequired()])
+    priority = SelectField("优先级", choices=[
+        ('紧急', '紧急'),
+        ('高', '高'),
+        ('普通', '普通'),
+        ('低', '低')
+    ], default='普通', validators=[DataRequired()])
+    due_date = DateField("截止日期", format="%Y-%m-%d", validators=[Optional()])
+    submit = SubmitField("创建任务")
+
+class TaskUpdateForm(FlaskForm):
+    """任务更新表单"""
+    status = SelectField("任务状态", choices=[
+        ('待处理', '待处理'),
+        ('处理中', '处理中'),
+        ('已完成', '已完成'),
+        ('已取消', '已取消')
+    ], validators=[DataRequired()])
+    comment = TextAreaField("处理备注")
+    submit = SubmitField("更新状态")
