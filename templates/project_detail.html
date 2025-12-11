@@ -37,7 +37,7 @@
     </div>
     <div class="stat-card">
         <div class="stat-number">¥{{ "%.2f"|format(total_cost) }}</div>
-        <div class="stat-label">总开发费用</div>
+        <div class="stat-label">总费用</div>
     </div>
 </div>
 
@@ -114,6 +114,48 @@
     {% endif %}
 </div>
 
+<!-- 自定义字段信息 -->
+{% if custom_fields and custom_field_values %}
+<div class="card" style="margin-bottom: 2rem;">
+    <h2 style="margin: 0 0 1.5rem 0; color: #333;">
+        <i class="fas fa-star" style="color: #667eea; margin-right: 0.5rem;"></i>
+        自定义字段
+    </h2>
+    
+    {% if custom_field_values.values()|select|list %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+        {% for field in custom_fields %}
+            {% if custom_field_values.get(field.id) %}
+                <div class="info-item">
+                    <strong>{{ field.field_label }}:</strong>
+                    <span>
+                        {% if field.field_type == 'checkbox' %}
+                            {% if custom_field_values.get(field.id) == '1' %}
+                                <span style="color: #28a745; font-weight: 600;">✓ 是</span>
+                            {% else %}
+                                <span style="color: #6c757d;">✗ 否</span>
+                            {% endif %}
+                        {% elif field.field_type == 'date' %}
+                            {{ custom_field_values.get(field.id) }}
+                        {% elif field.field_type == 'number' %}
+                            {{ custom_field_values.get(field.id) }}
+                        {% else %}
+                            {{ custom_field_values.get(field.id) }}
+                        {% endif %}
+                    </span>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; color: #999; padding: 2rem;">
+        <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.5;"></i>
+        <p style="margin: 0;">暂无自定义字段值</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- 合同和财务信息 -->
 <div class="card" style="margin-bottom: 2rem;">
     <h2 style="margin: 0 0 1.5rem 0; color: #333;">合同和财务信息</h2>
@@ -155,13 +197,13 @@
 <div class="card" style="margin-bottom: 2rem;">
     <h2 style="margin: 0 0 1.5rem 0; color: #333;">责任工程师</h2>
     {% if project.assignments %}
-    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem;">
+    <!--div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem;">
         {% for assignment in project.assignments %}
         <span class="badge" style="background: #667eea; color: white; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.9rem;">
             {{ assignment.user.username }}
         </span>
         {% endfor %}
-    </div>
+    </div-->
     {% else %}
     <p style="color: #999; margin-bottom: 1.5rem;">暂无分配的责任工程师</p>
     {% endif %}
@@ -243,7 +285,7 @@
             <tfoot>
                 <tr style="background-color: #f8f9fa; font-weight: bold;">
                     <td colspan="3" style="text-align: right; padding-right: 1rem;">总开发费用</td>
-                    <td><strong style="color: #007bff; font-size: 1.1rem;">¥{{ "%.2f"|format(total_cost) }}</strong></td>
+                    <td><strong style="color: #007bff; font-size: 1.1rem;">¥{{ "%.2f"|format(total_dev_cost) }}</strong></td>
                 </tr>
             </tfoot>
         </table>
@@ -252,6 +294,95 @@
     <div class="empty-state">
         <h3>暂无工时记录</h3>
         <p>还没有工程师记录工时，请等待工程师提交工时记录。</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 项目报销单 -->
+<div class="card" style="margin-top: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="margin: 0; color: #333;">
+            <i class="fas fa-file-invoice-dollar" style="color: #667eea; margin-right: 0.5rem;"></i>
+            项目报销单
+        </h2>
+        <a href="{{ url_for('expense_create') }}?project_id={{ project.id }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> 创建报销
+        </a>
+    </div>
+    
+    <!-- 金额统计 -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; color: #666;">已批准报销总额：</span>
+            <span style="font-size: 1.2rem; font-weight: 700; color: #28a745;">¥{{ "%.2f"|format(expense_stats.total_approved_amount) }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; color: #666;">待审批报销总额：</span>
+            <span style="font-size: 1.2rem; font-weight: 700; color: #ffc107;">¥{{ "%.2f"|format(expense_stats.total_pending_amount) }}</span>
+        </div>
+    </div>
+    
+    {% if project_expenses %}
+    <div class="table-container">
+        <table class="project-table">
+            <thead>
+                <tr>
+                    <th>报销编号</th>
+                    <th>标题</th>
+                    <th>类型</th>
+                    <th>申请人</th>
+                    <th>金额</th>
+                    <th>提交日期</th>
+                    <th>状态</th>
+                    <th>审批人</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in project_expenses %}
+                <tr>
+                    <td><strong>#{{ expense.id }}</strong></td>
+                    <td>{{ expense.title }}</td>
+                    <td>
+                        <span class="badge" style="background: #6c757d; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                            {{ expense.expense_type }}
+                        </span>
+                    </td>
+                    <td>{{ expense.user.username }}</td>
+                    <td><strong style="color: #007bff;">¥{{ "%.2f"|format(expense.total_amount) }}</strong></td>
+                    <td>{{ expense.submit_date.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if expense.status == '已批准' %}
+                            <span class="status-badge" style="background-color: #28a745;">{{ expense.status }}</span>
+                        {% elif expense.status == '待审批' %}
+                            <span class="status-badge" style="background-color: #ffc107;">{{ expense.status }}</span>
+                        {% elif expense.status == '已拒绝' %}
+                            <span class="status-badge" style="background-color: #dc3545;">{{ expense.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if expense.approver %}
+                            {{ expense.approver.username }}
+                        {% else %}
+                            <span style="color: #999;">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('expense_detail', expense_id=expense.id) }}" class="btn btn-primary" style="font-size: 0.8rem;">查看详情</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-file-invoice" style="font-size: 3rem; color: #ddd; margin-bottom: 1rem;"></i>
+        <h3>暂无报销记录</h3>
+        <p>该项目还没有相关的报销单</p>
+        <a href="{{ url_for('expense_create') }}?project_id={{ project.id }}" class="btn btn-success" style="margin-top: 1rem;">
+            <i class="fas fa-plus"></i> 创建第一笔报销
+        </a>
     </div>
     {% endif %}
 </div>

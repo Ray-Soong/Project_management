@@ -8,7 +8,13 @@
 <div class="card" style="max-width: 1400px; margin: 0 auto; padding: 2rem;">
     <h2 style="margin-bottom: 2rem; color: #333; text-align: center;">项目信息</h2>
     <p style="text-align: center; color: #666; margin-bottom: 2rem;">当前状态: <strong>{{ project.status }}</strong></p>
-    
+    <!-- 自定义字段管理按钮 -->
+    <div style="text-align: right; margin-bottom: 2rem;">
+        <a href="{{ url_for('manage_custom_fields') }}" class="btn btn-outline-secondary" style="margin-right: 1rem;">
+            <i class="fas fa-cog"></i> 管理自定义字段
+        </a>
+    </div>
+
     <form method="post">
         {{ form.hidden_tag() }}
         
@@ -118,6 +124,103 @@
                 <!-- 空白列 -->
             </div>
         </div>
+
+        <!-- 成本信息 -->
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e1e5e9;">
+            <h3 style="margin-bottom: 1.5rem; color: #333;">
+                <i class="fas fa-dollar-sign" style="color: #667eea; margin-right: 0.5rem;"></i>
+                成本信息
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.outsourcing_cost.label(class="form-label") }}
+                    {{ form.outsourcing_cost(class="form-control", placeholder="外包费用金额", step="0.01") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.indirect_cost.label(class="form-label") }}
+                    {{ form.indirect_cost(class="form-control", placeholder="间接成本金额", step="0.01") }}
+                </div>
+            </div>
+            
+            <div class="form-group">
+                {{ form.indirect_cost_notes.label(class="form-label") }}
+                <small style="color: #666; display: block; margin-bottom: 0.5rem;">
+                    <i class="fas fa-info-circle"></i> 请详细说明间接成本的具体项目，例如：房租水电200元，电脑报销300元
+                </small>
+                {{ form.indirect_cost_notes(class="form-control", 
+                    placeholder="例如：房租水电200元，电脑报销300元，办公用品50元", 
+                    rows="4",
+                    style="resize: vertical;") }}
+            </div>
+        </div>
+
+        <!-- 自定义字段区域 -->
+        {% if custom_fields %}
+        <div id="customFieldsSection" style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e1e5e9;">
+            <h3 style="margin-bottom: 1.5rem; color: #333;">
+                <i class="fas fa-star" style="color: #667eea; margin-right: 0.5rem;"></i>
+                自定义字段
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                {% for field in custom_fields %}
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label">
+                            {{ field.field_label }}
+                            {% if field.is_required %}<span style="color: red;">*</span>{% endif %}
+                        </label>
+                        
+                        {% if field.field_type == 'text' %}
+                            <input type="text" 
+                                   name="custom_field_{{ field.id }}" 
+                                   class="form-control" 
+                                   value="{{ custom_field_values.get(field.id, '') }}"
+                                   {% if field.is_required %}required{% endif %}>
+                        
+                        {% elif field.field_type == 'number' %}
+                            <input type="number" 
+                                   name="custom_field_{{ field.id }}" 
+                                   class="form-control" 
+                                   value="{{ custom_field_values.get(field.id, '') }}"
+                                   step="0.01"
+                                   {% if field.is_required %}required{% endif %}>
+                        
+                        {% elif field.field_type == 'date' %}
+                            <input type="date" 
+                                   name="custom_field_{{ field.id }}" 
+                                   class="form-control" 
+                                   value="{{ custom_field_values.get(field.id, '') }}"
+                                   {% if field.is_required %}required{% endif %}>
+                        
+                        {% elif field.field_type == 'select' %}
+                            <select name="custom_field_{{ field.id }}" 
+                                    class="form-control"
+                                    {% if field.is_required %}required{% endif %}>
+                                <option value="">请选择...</option>
+                                {% for option in field.options.split('\n') if option.strip() %}
+                                    <option value="{{ option.strip() }}" 
+                                            {% if custom_field_values.get(field.id) == option.strip() %}selected{% endif %}>
+                                        {{ option.strip() }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        
+                        {% elif field.field_type == 'checkbox' %}
+                            <div style="padding-top: 0.5rem;">
+                                <input type="checkbox" 
+                                       name="custom_field_{{ field.id }}" 
+                                       value="1"
+                                       {% if custom_field_values.get(field.id) == '1' %}checked{% endif %}>
+                                <span style="margin-left: 0.5rem;">是</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
         
         <!-- 责任工程师分配 -->
         <div class="form-group" style="margin-bottom: 2rem;">
@@ -141,6 +244,32 @@
     </form>
 </div>
 
+<script>
+function toggleCustomFields() {
+    const section = document.getElementById('customFieldsSection');
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+    } else {
+        section.style.display = 'none';
+    }
+}
+
+// 页面加载时检查是否有自定义字段值，如果有则自动显示
+document.addEventListener('DOMContentLoaded', function() {
+    const customFieldInputs = document.querySelectorAll('[name^="custom_field_"]');
+    let hasValues = false;
+    
+    customFieldInputs.forEach(input => {
+        if (input.value && input.value.trim() !== '') {
+            hasValues = true;
+        }
+    });
+    
+    if (hasValues) {
+        document.getElementById('customFieldsSection').style.display = 'block';
+    }
+});
+</script>
 <style>
 /* 增强表单样式 */
 .form-group {
@@ -172,12 +301,12 @@
     div[style*="grid-template-columns"] {
         grid-template-columns: 1fr !important;
     }
-}
     .card {
         max-width: 95% !important;
         padding: 1rem !important;
     }
 }
+
 
 @media (max-width: 1024px) {
     .card {

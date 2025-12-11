@@ -12,9 +12,6 @@
             </a>
         {% endif %}
         {% if current_user.is_admin() %}
-            <a href="{{ url_for('project_expense_records') }}" class="btn btn-info">
-                <i class="fas fa-chart-line"></i> 费用记录
-            </a>
             <a href="{{ url_for('expense_create') }}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> 新建报销
             </a>

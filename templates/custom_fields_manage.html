@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}管理自定义字段 - 项目管理系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">管理自定义字段</h1>
+
+<div class="card" style="max-width: 1200px; margin: 0 auto; padding: 2rem;">
+    <!-- 添加新字段表单 -->
+    <div style="background: #f8f9fa; padding: 2rem; border-radius: 8px; margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1.5rem;">添加新字段</h3>
+        <form method="post">
+            {{ form.hidden_tag() }}
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.field_name.label(class="form-label") }}
+                    {{ form.field_name(class="form-control") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.field_label.label(class="form-label") }}
+                    {{ form.field_label(class="form-control") }}
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.field_type.label(class="form-label") }}
+                    {{ form.field_type(class="form-control", id="field_type", onchange="toggleOptionsField()") }}
+                </div>
+                
+                <div class="form-group" id="optionsGroup" style="display: none;">
+                    {{ form.options.label(class="form-label") }}
+                    {{ form.options(class="form-control", rows="3") }}
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 1rem;">
+                {{ form.is_required() }} {{ form.is_required.label() }}
+            </div>
+            
+            <div style="text-align: center;">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+    
+    <!-- 现有字段列表 -->
+    <h3 style="margin-bottom: 1.5rem;">现有自定义字段</h3>
+    
+    {% if custom_fields %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>字段名称</th>
+                        <th>字段标签</th>
+                        <th>类型</th>
+                        <th>必填</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for field in custom_fields %}
+                    <tr>
+                        <td>{{ field.field_name }}</td>
+                        <td>{{ field.field_label }}</td>
+                        <td>
+                            {% if field.field_type == 'text' %}文本
+                            {% elif field.field_type == 'number' %}数字
+                            {% elif field.field_type == 'date' %}日期
+                            {% elif field.field_type == 'select' %}下拉选择
+                            {% elif field.field_type == 'checkbox' %}复选框
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if field.is_required %}
+                                <span style="color: #dc3545; font-weight: bold;">是</span>
+                            {% else %}
+                                <span style="color: #6c757d;">否</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if field.is_active %}
+                                <span style="color: #28a745; font-weight: bold;">启用</span>
+                            {% else %}
+                                <span style="color: #dc3545;">禁用</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ field.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p style="text-align: center; color: #666; padding: 2rem;">暂无自定义字段</p>
+    {% endif %}
+    
+    <div style="text-align: center; margin-top: 2rem;">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">返回项目列表</a>
+    </div>
+</div>
+
+<script>
+function toggleOptionsField() {
+    const fieldType = document.getElementById('field_type').value;
+    const optionsGroup = document.getElementById('optionsGroup');
+    
+    if (fieldType === 'select') {
+        optionsGroup.style.display = 'block';
+    } else {
+        optionsGroup.style.display = 'none';
+    }
+}
+
+// 页面加载时检查字段类型
+document.addEventListener('DOMContentLoaded', function() {
+    toggleOptionsField();
+});
+</script>
+
+<style>
+.table {
+    width: 100%;
+    margin-bottom: 1rem;
+    background-color: white;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    padding: 0.75rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0,0,0,.02);
+}
+</style>
+{% endblock %}

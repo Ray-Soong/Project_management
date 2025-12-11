@@ -117,6 +117,70 @@
             </div>
         </div>
         
+        <!-- 自定义字段区域 -->
+        {% if custom_fields %}
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e1e5e9;">
+            <h3 style="margin-bottom: 1.5rem; color: #333;">
+                <i class="fas fa-star" style="color: #667eea; margin-right: 0.5rem;"></i>
+                自定义字段
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                {% for field in custom_fields %}
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label">
+                            {{ field.field_label }}
+                            {% if field.is_required %}<span style="color: red;">*</span>{% endif %}
+                        </label>
+                        
+                        {% if field.field_type == 'text' %}
+                            <input type="text" 
+                                   name="custom_field_{{ field.id }}" 
+                                   class="form-control" 
+                                   placeholder="请输入{{ field.field_label }}"
+                                   {% if field.is_required %}required{% endif %}>
+                        
+                        {% elif field.field_type == 'number' %}
+                            <input type="number" 
+                                   name="custom_field_{{ field.id }}" 
+                                   class="form-control" 
+                                   placeholder="请输入{{ field.field_label }}"
+                                   step="0.01"
+                                   {% if field.is_required %}required{% endif %}>
+                        
+                        {% elif field.field_type == 'date' %}
+                            <input type="date" 
+                                   name="custom_field_{{ field.id }}" 
+                                   class="form-control" 
+                                   {% if field.is_required %}required{% endif %}>
+                        
+                        {% elif field.field_type == 'select' %}
+                            <select name="custom_field_{{ field.id }}" 
+                                    class="form-control"
+                                    {% if field.is_required %}required{% endif %}>
+                                <option value="">请选择{{ field.field_label }}...</option>
+                                {% if field.options %}
+                                    {% for option in field.options.split('\n') if option.strip() %}
+                                        <option value="{{ option.strip() }}">{{ option.strip() }}</option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        
+                        {% elif field.field_type == 'checkbox' %}
+                            <div style="padding-top: 0.5rem;">
+                                <input type="checkbox" 
+                                       name="custom_field_{{ field.id }}" 
+                                       value="1"
+                                       id="custom_field_{{ field.id }}">
+                                <label for="custom_field_{{ field.id }}" style="margin-left: 0.5rem; font-weight: normal;">是</label>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- 责任工程师分配 -->
         <div class="form-group" style="margin-bottom: 2rem;">
             {{ form.assigned_developers.label(class="form-label") }}

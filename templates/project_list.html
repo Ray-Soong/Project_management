@@ -5,11 +5,59 @@
 {% block content %}
 <h1 class="page-title">项目管理</h1>
 
+<!-- 筛选器 -->
+<div class="card" style="margin-bottom: 1rem; margin-top: -0.5rem;">
+    <form method="GET" action="{{ url_for('index') }}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">
+                <i class="fas fa-folder" style="color: #667eea;"></i> 项目类别
+            </label>
+            <select name="project_type" class="form-control">
+                <option value="">全部类别</option>
+                {% for type in project_types %}
+                    <option value="{{ type }}" {% if selected_type == type %}selected{% endif %}>
+                        {{ type }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">
+                <i class="fas fa-calendar-alt" style="color: #667eea;"></i> 合同签订开始日期
+            </label>
+            <input type="date" name="contract_date_from" class="form-control" value="{{ contract_date_from or '' }}">
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">
+                <i class="fas fa-calendar-alt" style="color: #667eea;"></i> 合同签订结束日期
+            </label>
+            <input type="date" name="contract_date_to" class="form-control" value="{{ contract_date_to or '' }}">
+        </div>
+        
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-search"></i> 筛选
+            </button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                <i class="fas fa-redo"></i> 重置
+            </a>
+        </div>
+    </form>
+</div>
+
 <!-- 统计卡片 -->
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-number">{{ stats.total_projects }}</div>
-        <div class="stat-label">总项目数</div>
+        <div class="stat-label">
+            {% if selected_type or contract_date_from or contract_date_to %}
+                筛选项目数
+            {% else %}
+                总项目数
+            {% endif %}
+        </div>
     </div>
     <div class="stat-card">
         <div class="stat-number">{{ stats.active_projects }}</div>
@@ -17,13 +65,54 @@
     </div>
     <div class="stat-card">
         <div class="stat-number">¥{{ "%.2f"|format(stats.total_contract_amount) }}</div>
-        <div class="stat-label">合同总金额(含税)</div>
+        <div class="stat-label">
+            {% if selected_type or contract_date_from or contract_date_to %}
+                筛选合同总金额
+            {% else %}
+                合同总金额(含税)
+            {% endif %}
+        </div>
     </div>
     <div class="stat-card">
-        <div class="stat-number">¥{{ "%.2f"|format(stats.total_dev_cost) }}</div>
-        <div class="stat-label">总开发费用</div>
+        <div class="stat-number">¥{{ "%.2f"|format(stats.total_cost) }}</div>
+        <div class="stat-label">
+            {% if selected_type or contract_date_from or contract_date_to %}
+                筛选总成本
+            {% else %}
+                总成本
+            {% endif %}
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">¥{{ "%.2f"|format(stats.gross_profit) }}</div>
+        <div class="stat-label">
+            {% if selected_type or contract_date_from or contract_date_to %}
+                筛选毛利
+            {% else %}
+                毛利
+            {% endif %}
+        </div>
     </div>
 </div>
+
+<!-- 筛选提示 -->
+{% if selected_type or contract_date_from or contract_date_to %}
+<div style="background: #e7f3ff; border-left: 4px solid #667eea; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; color: #333;">
+        <i class="fas fa-filter" style="color: #667eea;"></i>
+        <strong>当前筛选条件：</strong>
+        {% if selected_type %}
+            <span class="filter-tag">项目类别: {{ selected_type }}</span>
+        {% endif %}
+        {% if contract_date_from %}
+            <span class="filter-tag">开始日期: {{ contract_date_from }}</span>
+        {% endif %}
+        {% if contract_date_to %}
+            <span class="filter-tag">结束日期: {{ contract_date_to }}</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 <!-- 项目列表 -->
 <div class="card">
@@ -48,23 +137,31 @@
                     <th>预计工时</th>
                     <th>已记录工时</th>
                     <th>进度</th>
-                    <th>合同金额(含税)</th>
-                    <th>开发费用</th>
+                    <th>未收款</th>
+                    <th>总成本</th>
                     <th>操作</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in projects %}
+                {% set unpaid = (p.contract_amount_with_tax or 0) - (p.payment_received or 0) %}
+                {% set is_overdue = p.planned_end_date and p.status not in ['已完成', '已取消'] and p.planned_end_date < today %}
                 <tr>
                     <td><strong>#{{ p.id }}</strong></td>
                     <td>{{ p.name }}</td>
                     <td>{{ p.manager }}</td>
                     <td>{{ p.customer_name or '未设置' }}</td>
                     <td>{{ p.project_type or '未设置' }}</td>
-                    <td>
-                        <span class="status-badge" style="background-color: {{ p.get_status_color() }}">
-                            {{ p.status }}
-                        </span>
+                    <td {% if is_overdue %}class="overdue-highlight"{% endif %}>
+                        {% if is_overdue %}
+                            <span class="overdue-badge">
+                                <i class="fas fa-clock"></i> 超期
+                            </span>
+                        {% else %}
+                            <span class="status-badge" style="background-color: {{ p.get_status_color() }}">
+                                {{ p.status }}
+                            </span>
+                        {% endif %}
                     </td>
                     <td>
                         {% set developers = p.get_assigned_developers() %}
@@ -102,15 +199,26 @@
                             <span style="font-size: 0.8rem;">{{ "%.0f"|format(progress) }}%</span>
                         </div>
                     </td>
-                    <td>
-                        {% if p.contract_amount_with_tax %}
-                            ¥{{ "%.2f"|format(p.contract_amount_with_tax) }}
+                    <td {% if unpaid > 0 %}class="unpaid-highlight"{% endif %}>
+                        {% if p.contract_amount_with_tax is not none %}
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <strong style="{% if unpaid > 0 %}color: #dc3545; font-weight: 700;{% endif %}">
+                                    ¥{{ "%.2f"|format(unpaid) }}
+                                </strong>
+                                {% if unpaid > 0 %}
+                                    <i class="fas fa-exclamation-triangle" style="color: #dc3545; margin-left: 0.3rem;" title="存在未收款项"></i>
+                                {% else %}
+                                    <i class="fas fa-check-circle" style="color: #28a745; margin-left: 0.3rem;" title="已全部收款"></i>
+                                {% endif %}
+                            </div>
                         {% else %}
                             <span style="color: #999;">未设置</span>
                         {% endif %}
                     </td>
                     <td>
-                        ¥{{ "%.2f"|format(p.get_total_development_cost()) }}
+                        <div style="position: relative; display: inline-block;">
+                            <strong style="color: #007bff;">¥{{ "%.2f"|format(p.get_total_cost()) }}</strong>
+                        </div>
                     </td>
                     <td>
                         <a href="{{ url_for('project_detail', project_id=p.id) }}" class="btn btn-primary" style="font-size: 0.8rem; margin-right: 0.5rem;">详情</a>
@@ -123,9 +231,13 @@
     </div>
     {% else %}
     <div class="empty-state">
-        <h3>暂无项目</h3>
-        <p>还没有创建任何项目，点击上方按钮开始添加项目吧！</p>
-        <a href="{{ url_for('create_project') }}" class="btn btn-primary" style="margin-top: 1rem;">创建第一个项目</a>
+        <i class="fas fa-folder-open" style="font-size: 4rem; color: #ddd; margin-bottom: 1rem;"></i>
+        <h3>没有找到符合条件的项目</h3>
+        <p>请调整筛选条件或创建新项目</p>
+        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem;">
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">清除筛选</a>
+            <a href="{{ url_for('create_project') }}" class="btn btn-primary">创建项目</a>
+        </div>
     </div>
     {% endif %}
 </div>
@@ -134,6 +246,98 @@
 .badge {
     display: inline-block;
     white-space: nowrap;
+}
+
+/* 成本提示框样式 */
+.cost-tooltip {
+    display: inline-block;
+    position: relative;
+}
+
+.cost-breakdown {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 250px;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.cost-breakdown::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: white;
+}
+
+.cost-tooltip:hover .cost-breakdown {
+    display: block;
+}
+
+/* 未收款高亮样式 */
+.unpaid-highlight {
+    background: linear-gradient(90deg, #fff3cd 0%, #ffe69c 50%, #fff3cd 100%) !important;
+    background-size: 200% 100% !important;
+    animation: shimmer 3s ease-in-out infinite;
+    border-left: 4px solid #dc3545 !important;
+    font-weight: bold;
+    position: relative;
+}
+
+.unpaid-highlight::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #dc3545 0%, #ff6b6b 50%, #dc3545 100%);
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+/* 超期高亮样式 */
+.overdue-highlight {
+    background: linear-gradient(90deg, #ffe0e0 0%, #ffcccc 50%, #ffe0e0 100%) !important;
+    background-size: 200% 100% !important;
+    animation: shimmer-red 3s ease-in-out infinite;
+    border-left: 4px solid #ff4444 !important;
+    position: relative;
+}
+
+.overdue-highlight::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #ff4444 0%, #ff6666 50%, #ff4444 100%);
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+.overdue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: #ff4444;
+    color: white;
+    padding: 0.3rem 0.8rem;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    animation: pulse-badge 1.5s ease-in-out infinite;
 }
 
 @media (max-width: 768px) {

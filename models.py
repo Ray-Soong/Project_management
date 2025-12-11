@@ -49,7 +49,10 @@ class Project(db.Model):
     project_type = db.Column(db.String(50), nullable=True)  # 项目类型
     customer_name = db.Column(db.String(200), nullable=True)  # 客户名称
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    outsourcing_cost = db.Column(db.Numeric(10, 2), default=0)  # 外包费用
+    indirect_cost = db.Column(db.Numeric(10, 2), default=0)  # 间接成本
+    indirect_cost_notes = db.Column(db.Text)  # 间接成本备注
+
     # 项目状态选项
     STATUS_CHOICES = [
         ('启动中', '启动中'),
@@ -57,8 +60,7 @@ class Project(db.Model):
         ('暂停', '暂停'),
         ('验收中', '验收中'),
         ('验收待回款', '验收待回款'),
-        ('结算', '结算'),
-        ('关闭', '关闭')
+        ('结算', '结算')
     ]
     
     # 付款方式选项
@@ -112,8 +114,7 @@ class Project(db.Model):
             '暂停': '#ffc107',       # 黄色
             '验收中': '#fd7e14',     # 橙色
             '验收待回款': '#28a745', # 绿色
-            '结算': '#20c997',       # 青绿色
-            '关闭': '#dc3545'        # 红色
+            '结算': '#20c997'       # 青绿色
         }
         return status_colors.get(self.status, '#6c757d')
     
@@ -154,6 +155,24 @@ class Project(db.Model):
                 developer_costs[dev_name]['cost'] += log.hours * hourly_rate
         
         return developer_costs
+    
+    def get_total_cost(self):
+        """获取项目总费用（开发费用 + 已批准的报销费用 + 外包费用 + 间接成本)"""
+        # 开发费用
+        dev_cost = self.get_total_development_cost()
+        
+        # 报销费用（只计算已批准的）
+        expense_cost = 0
+        project_expenses = Expense.query.filter_by(project_id=self.id, status='已批准').all()
+        expense_cost = sum(float(e.total_amount) for e in project_expenses)
+        
+        # 外包费用
+        outsourcing = float(self.outsourcing_cost) if self.outsourcing_cost else 0
+        
+        # 间接成本
+        indirect = float(self.indirect_cost) if self.indirect_cost else 0
+
+        return dev_cost + expense_cost + outsourcing + indirect
 
 # 项目开发者分配关联表
 class ProjectAssignment(db.Model):
@@ -353,3 +372,87 @@ class ProjectExpenseRecord(db.Model):
     project = db.relationship('Project', backref=db.backref('expense_records', lazy=True))
     expense = db.relationship('Expense', backref=db.backref('project_records', lazy=True))
     recorder = db.relationship('User', backref=db.backref('recorded_expenses', lazy=True))
+
+# 自定义字段表
+class CustomField(db.Model):
+    __tablename__ = 'custom_fields'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    field_name = db.Column(db.String(100), nullable=False)
+    field_label = db.Column(db.String(100), nullable=False)
+    field_type = db.Column(db.String(50), nullable=False)  # text, number, date, select, checkbox
+    options = db.Column(db.Text)  # JSON格式存储选项（用于select类型）
+    is_required = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # 关联到项目的自定义字段值
+    values = db.relationship('ProjectCustomFieldValue', backref='custom_field', lazy='dynamic', cascade='all, delete-orphan')
+
+class ProjectCustomFieldValue(db.Model):
+    __tablename__ = 'project_custom_field_values'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    custom_field_id = db.Column(db.Integer, db.ForeignKey('custom_fields.id'), nullable=False)
+    value = db.Column(db.Text)  # 存储字段值
+    
+    # 确保每个项目的每个自定义字段只有一个值
+    __table_args__ = (db.UniqueConstraint('project_id', 'custom_field_id', name='_project_field_uc'),)
+
+class OperationLog(db.Model):
+    """操作日志模型"""
+    __tablename__ = 'operation_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    operation_type = db.Column(db.String(50), nullable=False)  # 操作类型：登录、创建、编辑、删除、审批等
+    operation_module = db.Column(db.String(50), nullable=False)  # 操作模块：项目、工时、报销、任务等
+    operation_detail = db.Column(db.Text)  # 操作详情
+    target_type = db.Column(db.String(50))  # 目标对象类型：project、worklog、expense等
+    target_id = db.Column(db.Integer)  # 目标对象ID
+    ip_address = db.Column(db.String(50))  # IP地址
+    user_agent = db.Column(db.String(500))  # 浏览器信息
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # 关联
+    user = db.relationship('User', backref=db.backref('logs', lazy=True), foreign_keys=[user_id])
+    
+    def __repr__(self):
+        return f'<OperationLog {self.user.username} - {self.operation_type} - {self.operation_module}>'
+    
+    def get_operation_icon(self):
+        """获取操作类型对应的图标"""
+        icons = {
+            '登录': 'fa-sign-in-alt',
+            '登出': 'fa-sign-out-alt',
+            '创建': 'fa-plus-circle',
+            '编辑': 'fa-edit',
+            '删除': 'fa-trash-alt',
+            '审批': 'fa-check-circle',
+            '拒绝': 'fa-times-circle',
+            '分配': 'fa-user-plus',
+            '更新状态': 'fa-sync-alt',
+            '上传': 'fa-upload',
+            '下载': 'fa-download',
+            '查看': 'fa-eye'
+        }
+        return icons.get(self.operation_type, 'fa-circle')
+    
+    def get_operation_color(self):
+        """获取操作类型对应的颜色"""
+        colors = {
+            '登录': '#28a745',
+            '登出': '#6c757d',
+            '创建': '#007bff',
+            '编辑': '#ffc107',
+            '删除': '#dc3545',
+            '审批': '#28a745',
+            '拒绝': '#dc3545',
+            '分配': '#17a2b8',
+            '更新状态': '#6f42c1',
+            '上传': '#20c997',
+            '下载': '#fd7e14',
+            '查看': '#6c757d'
+        }
+        return colors.get(self.operation_type, '#6c757d')

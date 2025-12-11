@@ -1,6 +1,9 @@
 from flask import Flask, jsonify, render_template, redirect, url_for, request, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from datetime import datetime
+from models import CustomField, ProjectCustomFieldValue, db, Project, User, WorkLog, ProjectAssignment, Expense, ExpenseItem, Task, ProjectExpenseRecord, OperationLog
+from forms import ProjectForm, LoginForm, UserForm, WorkLogForm, ProjectStatusForm, ExpenseForm, ExpenseApprovalForm, TaskForm, TaskUpdateForm, CustomFieldForm
+from datetime import datetime, date
+from utils import log_operation
 import logging
 import os
 
@@ -21,9 +24,6 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # 确保上传目录存在
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-from models import db, Project, User, WorkLog, ProjectAssignment, Expense, ExpenseItem, Task, ProjectExpenseRecord
-from forms import ProjectForm, LoginForm, UserForm, WorkLogForm, ProjectStatusForm, ExpenseForm, ExpenseApprovalForm, TaskForm, TaskUpdateForm
 
 # 登录管理器
 login_manager = LoginManager()
@@ -60,6 +60,14 @@ with app.app_context():
         # 尝试查询用户表来检查数据库是否存在
         User.query.first()
         print("数据库已存在，保留现有数据")
+        try:
+            CustomField.query.first()
+            print("自定义字段表已存在")
+        except:
+            print("创建自定义字段表...")
+            # 只创建新表
+            db.create_all()
+            print("自定义字段表创建完成")
     except:
         # 如果查询失败，说明数据库不存在或表结构不对，重新创建
         print("创建新的数据库...")
@@ -72,28 +80,77 @@ with app.app_context():
 @login_required
 def index():
     if current_user.is_admin():
-        projects = Project.query.all()
+        # 获取筛选参数
+        project_type = request.args.get('project_type')
+        contract_date_from = request.args.get('contract_date_from')
+        contract_date_to = request.args.get('contract_date_to')
         
+        # 构建查询
+        query = Project.query
+        
+        # 应用项目类别筛选
+        if project_type:
+            query = query.filter_by(project_type=project_type)
+        
+        # 应用合同日期筛选
+        if contract_date_from:
+            try:
+                from_date = datetime.strptime(contract_date_from, '%Y-%m-%d').date()
+                query = query.filter(Project.contract_signing_date >= from_date)
+            except ValueError:
+                pass
+        
+        if contract_date_to:
+            try:
+                to_date = datetime.strptime(contract_date_to, '%Y-%m-%d').date()
+                query = query.filter(Project.contract_signing_date <= to_date)
+            except ValueError:
+                pass
+        
+        # 获取筛选后的项目列表
+        projects = query.all()
+
         # 计算统计数据
         total_contract_amount = sum(
             float(p.contract_amount_with_tax) if p.contract_amount_with_tax else 0 
             for p in projects
         )
         
-        total_dev_cost = sum(
-            p.get_total_development_cost() for p in projects
-        )
+        # 计算所有项目的总成本（开发费用 + 报销费用 + 外包费用 + 间接成本）
+        total_cost = sum(p.get_total_cost() for p in projects)
         
-        active_projects_count = len([p for p in projects if p.status in ['启动中', '进行中']])
+        # 毛利 = 合同总金额 - 总成本
+        gross_profit = total_contract_amount - total_cost
+
+        active_projects_count = len([p for p in projects if p.status == '进行中'])
         
         stats = {
             'total_projects': len(projects),
             'active_projects': active_projects_count,
             'total_contract_amount': total_contract_amount,
-            'total_dev_cost': total_dev_cost
+            'total_cost': total_cost,  # 总费用
+            'gross_profit': gross_profit  # 毛利
         }
+
+        # 获取所有项目类别用于筛选下拉框
+        all_types = db.session.query(Project.project_type).distinct().filter(
+            Project.project_type.isnot(None)
+        ).all()
+        project_types = [c[0] for c in all_types if c[0]]
+
+        # 传递当前日期
+        today = date.today()
         
-        return render_template("project_list.html", projects=projects, stats=stats)
+        return render_template(
+            "project_list.html", 
+            projects=projects, 
+            stats=stats, 
+            today=today,
+            project_types=project_types,
+            selected_type=project_type,
+            contract_date_from=contract_date_from,
+            contract_date_to=contract_date_to
+        )
     elif current_user.is_developer():
         return redirect(url_for('worklog_list'))
     else:
@@ -110,6 +167,8 @@ def login():
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.check_password(form.password.data):
             login_user(user)
+            # 记录登录日志
+            log_operation('登录', '系统', f'用户 {user.username} 登录系统')
             next_page = request.args.get('next')
             return redirect(next_page) if next_page else redirect(url_for('index'))
         flash("用户名或密码错误")
@@ -118,6 +177,8 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    # 记录登出日志
+    log_operation('登出', '系统', f'用户 {current_user.username} 登出系统')
     logout_user()
     return redirect(url_for("login"))
 
@@ -149,9 +210,12 @@ def create_project():
             contract_amount_with_tax=form.contract_amount_with_tax.data,
             contract_amount_without_tax=form.contract_amount_without_tax.data,
             payment_method=form.payment_method.data,
-            payment_received=form.payment_received.data,
+            payment_received=form.payment_received.data or 0,
             invoice_issued=form.invoice_issued.data,
             status=form.status.data,
+            outsourcing_cost=form.outsourcing_cost.data or 0,
+            indirect_cost=form.indirect_cost.data or 0,
+            indirect_cost_notes=form.indirect_cost_notes.data
         )
         # 计算剩余金额
         if project.contract_amount_with_tax and project.payment_received:
@@ -162,12 +226,25 @@ def create_project():
         db.session.add(project)
         db.session.flush()  # 获取项目ID
         
-        # 分配开发者
+        # 分配开发者并记录名字
+        assigned_devs = []
         for dev_id in form.assigned_developers.data:
             assignment = ProjectAssignment(project_id=project.id, user_id=dev_id)
             db.session.add(assignment)
+            dev = User.query.get(dev_id)
+            assigned_devs.append(dev.username)
         
         db.session.commit()
+
+         # 记录操作日志
+        log_operation(
+            '创建',
+            '项目',
+            f'创建项目 "{project.name}"，客户：{project.customer_name or "未设置"}，分配工程师：{", ".join(assigned_devs) if assigned_devs else "无"}',
+            'project',
+            project.id
+        )
+
         flash("项目创建成功，请为开发者设置工时费用")
         return redirect(url_for("project_detail", project_id=project.id))
     return render_template("project_create.html", form=form)
@@ -182,12 +259,70 @@ def project_detail(project_id):
     
     project = Project.query.get_or_404(project_id)
     developer_costs = project.get_developer_costs()
-    total_cost = project.get_total_development_cost()
+    total_dev_cost = project.get_total_development_cost()
+
+    # 获取自定义字段
+    custom_fields = CustomField.query.filter_by(is_active=True).all()
     
+    # 获取当前项目的自定义字段值
+    custom_field_values = {}
+    for field in custom_fields:
+        value = ProjectCustomFieldValue.query.filter_by(
+            project_id=project_id, 
+            custom_field_id=field.id
+        ).first()
+        if value:
+            custom_field_values[field.id] = value.value
+
+    # 获取该项目关联的所有报销单
+    project_expenses = Expense.query.filter_by(project_id=project_id).order_by(Expense.submit_date.desc()).all()
+    
+    # 计算报销总金额
+    total_expense_amount = sum(float(expense.total_amount) for expense in project_expenses if expense.status == '已批准')
+    pending_expense_amount = sum(float(expense.total_amount) for expense in project_expenses if expense.status == '待审批')
+    
+    # 计算总费用（开发费用 + 已批准的报销费用）
+    total_cost = total_dev_cost + total_expense_amount
+    
+    # 报销统计
+    expense_stats = {
+        'total_count': len(project_expenses),
+        'approved_count': len([e for e in project_expenses if e.status == '已批准']),
+        'pending_count': len([e for e in project_expenses if e.status == '待审批']),
+        'rejected_count': len([e for e in project_expenses if e.status == '已拒绝']),
+        'total_approved_amount': total_expense_amount,
+        'total_pending_amount': pending_expense_amount
+    }
+            
     return render_template("project_detail.html", 
                          project=project, 
                          developer_costs=developer_costs,
-                         total_cost=total_cost)
+                         total_dev_cost=total_dev_cost,
+                         total_cost=total_cost,
+                         custom_fields=custom_fields,
+                         custom_field_values=custom_field_values,
+                         project_expenses=project_expenses,
+                         expense_stats=expense_stats)
+
+@app.route('/custom-fields/manage', methods=['GET', 'POST'])
+def manage_custom_fields():
+    form = CustomFieldForm()
+    
+    if form.validate_on_submit():
+        custom_field = CustomField(
+            field_name=form.field_name.data,
+            field_label=form.field_label.data,
+            field_type=form.field_type.data,
+            options=form.options.data if form.field_type.data == 'select' else None,
+            is_required=form.is_required.data
+        )
+        db.session.add(custom_field)
+        db.session.commit()
+        flash('自定义字段添加成功！', 'success')
+        return redirect(url_for('manage_custom_fields'))
+    
+    custom_fields = CustomField.query.all()
+    return render_template('custom_fields_manage.html', form=form, custom_fields=custom_fields)
 
 @app.route("/projects/<int:project_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -197,17 +332,140 @@ def edit_project(project_id):
         return redirect(url_for("index"))
     
     project = Project.query.get_or_404(project_id)
+
+    # 记录修改前的所有信息用于对比
+    old_data = {
+        'name': project.name,
+        'manager': project.manager,
+        'customer_name': project.customer_name,
+        'project_type': project.project_type,
+        'status': project.status,
+        'estimated_hours': project.estimated_hours,
+        'start_date': project.start_date,
+        'planned_end_date': project.planned_end_date,
+        'acceptance_date': project.acceptance_date,
+        'contract_amount_with_tax': project.contract_amount_with_tax,
+        'contract_amount_without_tax': project.contract_amount_without_tax,
+        'payment_method': project.payment_method,
+        'payment_received': project.payment_received,
+        'contract_signing_date': project.contract_signing_date,
+        'settlement_date': project.settlement_date,
+        'invoice_date': project.invoice_date,
+        'invoice_issued': project.invoice_issued,
+        'outsourcing_cost': project.outsourcing_cost,
+        'indirect_cost': project.indirect_cost,
+        'indirect_cost_notes': project.indirect_cost_notes,
+    }
+
     form = ProjectForm(obj=project)
     
     # 获取所有开发者用于选择
     developers = User.query.filter_by(role='developer').all()
     form.assigned_developers.choices = [(dev.id, dev.username) for dev in developers]
     
+    # 获取自定义字段
+    custom_fields = CustomField.query.filter_by(is_active=True).all()
+    
+    # 获取当前项目的自定义字段值
+    custom_field_values = {}
+    for field in custom_fields:
+        value = ProjectCustomFieldValue.query.filter_by(
+            project_id=project_id, 
+            custom_field_id=field.id
+        ).first()
+        if value:
+            custom_field_values[field.id] = value.value
+
     # 设置已分配的开发者
     if request.method == 'GET':
         form.assigned_developers.data = [assignment.user_id for assignment in project.assignments]
     
     if form.validate_on_submit():
+        # 记录变更内容
+        changes = []
+        
+        # 定义字段的中文名称映射
+        field_labels = {
+            'name': '项目名称',
+            'manager': '项目经理',
+            'customer_name': '客户名称',
+            'project_type': '项目类型',
+            'status': '项目状态',
+            'estimated_hours': '预计工时',
+            'start_date': '开始日期',
+            'planned_end_date': '预计结束日期',
+            'acceptance_date': '验收日期',
+            'contract_amount_with_tax': '含税合同金额',
+            'contract_amount_without_tax': '不含税合同金额',
+            'payment_method': '回款方式',
+            'payment_received': '已回款金额',
+            'contract_signing_date': '合同签订日期',
+            'settlement_date': '结算日期',
+            'invoice_date': '开票日期',
+            'invoice_issued': '开票状态',
+            'outsourcing_cost': '外包费用',
+            'indirect_cost': '间接成本',
+            'indirect_cost_notes': '间接成本备注',
+        }
+
+        # 格式化值的显示
+        def format_value(field_name, value):
+            if value is None:
+                return '未设置'
+            if field_name in ['start_date', 'planned_end_date', 'acceptance_date', 
+                            'contract_signing_date', 'settlement_date', 'invoice_date']:
+                return value.strftime('%Y-%m-%d') if value else '未设置'
+            if field_name in ['contract_amount_with_tax', 'contract_amount_without_tax', 
+                            'payment_received', 'outsourcing_cost', 'indirect_cost']:
+                return f'¥{float(value):.2f}' if value else '¥0.00'
+            if field_name == 'estimated_hours':
+                return f'{float(value):.1f}小时' if value else '未设置'
+            if field_name == 'invoice_issued':
+                return '是' if value else '否'
+            return str(value) if value else '未设置'
+        
+        # 对比基本字段变更
+        form_data = {
+            'name': form.name.data,
+            'manager': form.manager.data,
+            'customer_name': form.customer_name.data,
+            'project_type': form.project_type.data,
+            'status': form.status.data,
+            'estimated_hours': form.estimated_hours.data,
+            'start_date': form.start_date.data,
+            'planned_end_date': form.planned_end_date.data,
+            'acceptance_date': form.acceptance_date.data,
+            'contract_amount_with_tax': form.contract_amount_with_tax.data,
+            'contract_amount_without_tax': form.contract_amount_without_tax.data,
+            'payment_method': form.payment_method.data,
+            'payment_received': form.payment_received.data or 0,
+            'contract_signing_date': form.contract_signing_date.data,
+            'settlement_date': form.settlement_date.data,
+            'invoice_date': form.invoice_date.data,
+            'invoice_issued': form.invoice_issued.data,
+            'outsourcing_cost': form.outsourcing_cost.data or 0,
+            'indirect_cost': form.indirect_cost.data or 0,
+            'indirect_cost_notes': form.indirect_cost_notes.data,
+        }
+        
+        # 比较每个字段
+        for field_name, new_value in form_data.items():
+            old_value = old_data[field_name]
+            # 特殊处理数字字段的比较
+            if field_name in ['contract_amount_with_tax', 'contract_amount_without_tax', 
+                            'payment_received', 'outsourcing_cost', 'indirect_cost', 'estimated_hours']:
+                old_val = float(old_value) if old_value else 0
+                new_val = float(new_value) if new_value else 0
+                if abs(old_val - new_val) > 0.01:  # 避免浮点数比较问题
+                    changes.append(
+                        f'{field_labels[field_name]}: {format_value(field_name, old_value)} → {format_value(field_name, new_value)}'
+                    )
+            elif old_value != new_value:
+                changes.append(
+                    f'{field_labels[field_name]}: {format_value(field_name, old_value)} → {format_value(field_name, new_value)}'
+                )
+        
+        # 更新项目信息
         project.name = form.name.data
         project.manager = form.manager.data
         project.customer_name = form.customer_name.data
@@ -222,12 +480,19 @@ def edit_project(project_id):
         project.contract_amount_with_tax = form.contract_amount_with_tax.data
         project.contract_amount_without_tax = form.contract_amount_without_tax.data
         project.payment_method = form.payment_method.data
-        project.payment_received = form.payment_received.data
+        project.payment_received = form.payment_received.data or 0
         project.invoice_issued = form.invoice_issued.data
         project.status = form.status.data
+        # 处理外包费用和间接成本
+        project.outsourcing_cost = form.outsourcing_cost.data or 0
+        project.indirect_cost = form.indirect_cost.data or 0
+        project.indirect_cost_notes = form.indirect_cost_notes.data
         
         # 重新计算剩余金额
         if project.contract_amount_with_tax and project.payment_received:
+            new_remaining = project.contract_amount_with_tax - project.payment_received
+            if abs(float(project.remaining_amount or 0) - float(new_remaining)) > 0.01:
+                changes.append(f'剩余金额: ¥{float(project.remaining_amount or 0):.2f} → ¥{float(new_remaining):.2f}')
             project.remaining_amount = project.contract_amount_with_tax - project.payment_received
         elif project.contract_amount_with_tax:
             project.remaining_amount = project.contract_amount_with_tax
@@ -241,19 +506,100 @@ def edit_project(project_id):
         
         # 删除不再分配的开发者
         to_remove = current_dev_ids - new_dev_ids
+        removed_devs = []
         for dev_id in to_remove:
+            dev = User.query.get(dev_id)
+            removed_devs.append(dev.username)
             db.session.delete(current_assignments[dev_id])
         
         # 添加新分配的开发者
         to_add = new_dev_ids - current_dev_ids
+        added_devs = []
         for dev_id in to_add:
+            dev = User.query.get(dev_id)
+            added_devs.append(dev.username)
             assignment = ProjectAssignment(project_id=project.id, user_id=dev_id)
             db.session.add(assignment)
+
+        # 记录人员变更
+        if added_devs:
+            changes.append(f'新增工程师: {", ".join(added_devs)}')
+        if removed_devs:
+            changes.append(f'移除工程师: {", ".join(removed_devs)}')
         
+        # 处理自定义字段
+        for field in custom_fields:
+            field_name = f'custom_field_{field.id}'
+            old_custom_value = custom_field_values.get(field.id, '')
+
+            if field_name in request.form:
+                field_value = request.form[field_name]
+                if old_custom_value != field_value:
+                    changes.append(
+                        f'{field.field_label}: {old_custom_value or "未设置"} → {new_custom_value or "未设置"}'
+                    )
+
+                # 查找或创建自定义字段值记录
+                custom_value = ProjectCustomFieldValue.query.filter_by(
+                    project_id=project_id,
+                    custom_field_id=field.id
+                ).first()
+                    
+                if custom_value:
+                    custom_value.value = field_value
+                else:
+                    custom_value = ProjectCustomFieldValue(
+                        project_id=project_id,
+                        custom_field_id=field.id,
+                        value=field_value
+                    )
+                    db.session.add(custom_value)
+            elif field.field_type == 'checkbox':
+                # 复选框未选中时不会在 request.form 中
+                new_custom_value = '0'
+                if old_custom_value != '0' and old_custom_value != '':
+                    changes.append(f'{field.field_label}: 选中 → 未选中')
+
+                custom_value = ProjectCustomFieldValue.query.filter_by(
+                    project_id=project_id,
+                    custom_field_id=field.id
+                ).first()
+                
+                if custom_value:
+                    custom_value.value = '0'
+                else:
+                    custom_value = ProjectCustomFieldValue(
+                        project_id=project_id,
+                        custom_field_id=field.id,
+                        value='0'
+                    )
+                    db.session.add(custom_value)
+
         db.session.commit()
-        flash("项目更新成功")
+
+        # 记录操作日志 - 更详细的变更记录
+        if changes:
+            change_detail = f'编辑项目 "{old_data["name"]}"，共修改 {len(changes)} 项内容：\n'
+            change_detail += '\n'.join([f'  • {change}' for change in changes])
+        else:
+            change_detail = f'编辑项目 "{old_data["name"]}"（未做实际修改）'
+        
+        log_operation(
+            '编辑',
+            '项目',
+            change_detail,
+            'project',
+            project.id
+        )
+
+        flash(f"项目更新成功，共修改了 {len(changes)} 项内容")
         return redirect(url_for("project_detail", project_id=project.id))
-    return render_template("project_edit.html", form=form, project=project)
+    
+    return render_template("project_edit.html", 
+                         form=form, 
+                         project=project,
+                         custom_fields=custom_fields,
+                         custom_field_values=custom_field_values)
 
 @app.route("/projects/<int:project_id>/assignment/<int:assignment_id>/rate", methods=["POST"])
 @login_required
@@ -325,15 +671,40 @@ def create_user():
 @app.route("/worklogs")
 @login_required
 def worklog_list():
-    if current_user.is_admin():
-        worklogs = WorkLog.query.all()
-    elif current_user.is_developer():
-        worklogs = WorkLog.query.filter_by(user_id=current_user.id).all()
-    else:
-        flash("权限不足")
-        return redirect(url_for("index"))
+    """工时记录列表"""
+    # 获取查询参数
+    user_id = request.args.get('user_id', type=int)
+    project_id = request.args.get('project_id', type=int)
     
-    return render_template("worklog_list.html", worklogs=worklogs)
+    # 基础查询
+    query = WorkLog.query
+    
+    # 根据用户角色过滤
+    if current_user.is_developer():
+        query = query.filter_by(user_id=current_user.id)
+    
+    # 应用过滤条件
+    if user_id:
+        query = query.filter_by(user_id=user_id)
+    
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    
+    # 获取结果并排序
+    worklogs = query.order_by(WorkLog.date.desc(), WorkLog.created_at.desc()).all()
+    
+    # 获取所有用户和项目用于下拉选择
+    users = User.query.filter_by(role='developer').all() if current_user.is_admin() else []
+    projects = Project.query.all()
+    
+    return render_template(
+        "worklog_list.html", 
+        worklogs=worklogs,
+        users=users,
+        projects=projects,
+        selected_user_id=user_id,
+        selected_project_id=project_id
+    )
 
 @app.route("/worklogs/create", methods=["GET", "POST"])
 @login_required
@@ -364,6 +735,17 @@ def create_worklog():
         )
         db.session.add(worklog)
         db.session.commit()
+
+        # 获取项目信息用于日志 - 添加这两行
+        project = Project.query.get(form.project_id.data)
+        log_operation(
+            '创建',
+            '工时',
+            f'记录工时 {form.hours.data}小时，项目：{project.name}',
+            'worklog',
+            worklog.id
+        )
+
         flash("工时记录成功")
         return redirect(url_for("worklog_list"))
     
@@ -535,6 +917,15 @@ def expense_approve(expense_id):
             flash("报销已拒绝")
         
         db.session.commit()
+
+        log_operation(
+            '审批' if form.status.data == '已批准' else '拒绝',
+            '报销',
+            f'{"批准" if form.status.data == "已批准" else "拒绝"}报销申请 "{expense.title}"，金额：¥{expense.total_amount}',
+            'expense',
+            expense.id
+        )
+
         return redirect(url_for("expense_detail", expense_id=expense_id))
     
     return render_template("expense_approve.html", form=form, expense=expense)
@@ -683,17 +1074,78 @@ def task_update(task_id):
     
     return render_template("task_update.html", form=form, task=task)
 
-@app.route("/expenses/project-records")
+# 添加历史记录查询路由
+@app.route("/operation-logs")
 @login_required
-def project_expense_records():
-    """项目费用记录"""
+def operation_logs():
+    """操作日志列表"""
     if not current_user.is_admin():
-        flash("您没有权限查看项目费用记录")
+        flash("只有管理员可以查看操作日志")
         return redirect(url_for("index"))
     
-    records = ProjectExpenseRecord.query.join(Project).order_by(ProjectExpenseRecord.recorded_at.desc()).all()
-    return render_template("project_expense_records.html", records=records)
-
+    # 获取查询参数
+    user_id = request.args.get('user_id', type=int)
+    operation_type = request.args.get('operation_type')
+    operation_module = request.args.get('operation_module')
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    
+    # 构建查询
+    query = OperationLog.query
+    
+    if user_id:
+        query = query.filter_by(user_id=user_id)
+    
+    if operation_type:
+        query = query.filter_by(operation_type=operation_type)
+    
+    if operation_module:
+        query = query.filter_by(operation_module=operation_module)
+    
+    if date_from:
+        try:
+            from_date = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(OperationLog.created_at >= from_date)
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            to_date = datetime.strptime(date_to, '%Y-%m-%d')
+            to_date = to_date.replace(hour=23, minute=59, second=59)
+            query = query.filter(OperationLog.created_at <= to_date)
+        except ValueError:
+            pass
+    
+    # 分页
+    pagination = query.order_by(OperationLog.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    logs = pagination.items
+    
+    # 获取筛选选项
+    users = User.query.all()
+    operation_types = db.session.query(OperationLog.operation_type).distinct().all()
+    operation_types = [t[0] for t in operation_types]
+    operation_modules = db.session.query(OperationLog.operation_module).distinct().all()
+    operation_modules = [m[0] for m in operation_modules]
+    
+    return render_template(
+        "operation_logs.html",
+        logs=logs,
+        pagination=pagination,
+        users=users,
+        operation_types=operation_types,
+        operation_modules=operation_modules,
+        selected_user_id=user_id,
+        selected_operation_type=operation_type,
+        selected_operation_module=operation_module,
+        date_from=date_from,
+        date_to=date_to
+    )
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5005, debug=True)

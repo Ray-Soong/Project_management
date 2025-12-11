@@ -48,9 +48,13 @@ class ProjectForm(FlaskForm):
         ('暂停', '暂停'),
         ('验收中', '验收中'),
         ('验收待回款', '验收待回款'),
-        ('结算', '结算'),
-        ('关闭', '关闭')
+        ('结算', '结算')
     ], validators=[DataRequired()])
+    
+    outsourcing_cost = FloatField("外包费用", default=0)
+    indirect_cost = FloatField("间接成本", default=0)
+    indirect_cost_notes = TextAreaField("间接成本备注")
+
     assigned_developers = MultiCheckboxField("责任工程师", coerce=int)
     submit = SubmitField("提交")
 
@@ -62,8 +66,7 @@ class ProjectStatusForm(FlaskForm):
         ('暂停', '暂停'),
         ('验收中', '验收中'),
         ('验收待回款', '验收待回款'),
-        ('结算', '结算'),
-        ('关闭', '关闭')
+        ('结算', '结算')
     ], validators=[DataRequired()])
     submit = SubmitField("更新状态")
     
@@ -183,3 +186,17 @@ class TaskUpdateForm(FlaskForm):
     ], validators=[DataRequired()])
     comment = TextAreaField("处理备注")
     submit = SubmitField("更新状态")
+
+class CustomFieldForm(FlaskForm):
+    field_name = StringField('字段名称', validators=[DataRequired(), Length(min=1, max=100)])
+    field_label = StringField('字段标签', validators=[DataRequired(), Length(min=1, max=100)])
+    field_type = SelectField('字段类型', choices=[
+        ('text', '文本'),
+        ('number', '数字'),
+        ('date', '日期'),
+        ('select', '下拉选择'),
+        ('checkbox', '复选框')
+    ], validators=[DataRequired()])
+    options = TextAreaField('选项（每行一个，仅用于下拉选择）')
+    is_required = BooleanField('必填字段')
+    submit = SubmitField('保存字段')
