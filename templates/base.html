@@ -83,19 +83,27 @@
         <header class="header">
             <div class="header-content">
                 <a href="{{ url_for('index') }}" class="logo">
-                    <i class="fas fa-project-diagram"></i> 项目管理系统
+                    <img src="{{ url_for('static', filename='DEME.png') }}" alt="十致项目管理系统" style="height: 30px;"> 项目管理系统
                 </a>
                 <nav class="nav">
                     {% if current_user.is_authenticated %}
-                        {% if current_user.is_admin() %}
+                        {% if current_user.has_full_access() %}
+                            <!-- 管理员和财务：完全权限 -->
                             <a href="{{ url_for('index') }}">项目列表</a>
                             <a href="{{ url_for('create_project') }}">添加项目</a>
-                            <a href="{{ url_for('create_user') }}">创建用户</a>
+                            <a href="{{ url_for('user_list') }}">用户管理</a>
                             <a href="{{ url_for('worklog_list') }}">工时记录</a>
                             <a href="{{ url_for('expense_list') }}">报销管理</a>
-                            <a href="{{ url_for('task_list') }}">任务管理</a>
+                            <a href="{{ url_for('task_list') }}">我的任务</a>
                             <a href="{{ url_for('operation_logs') }}" class="nav-link">操作日志</a>
+                        {% elif current_user.is_project_manager() %}
+                            <!-- 项目经理：只能查看关联项目 -->
+                            <a href="{{ url_for('index') }}">我的项目</a>
+                            <a href="{{ url_for('worklog_list') }}">工时记录</a>
+                            <a href="{{ url_for('expense_list') }}">报销记录</a>
+                            <a href="{{ url_for('task_list') }}">我的任务</a>
                         {% elif current_user.is_developer() %}
+                            <!-- 开发工程师：只能操作工时和报销 -->
                             <a href="{{ url_for('worklog_list') }}">我的工时</a>
                             <a href="{{ url_for('create_worklog') }}">记录工时</a>
                             <a href="{{ url_for('expense_list') }}">我的报销</a>
@@ -112,12 +120,26 @@
     <div class="cibtauber">
         <!-- 主内容区域 -->
         <main class="main-content">
-            {% with messages = get_flashed_messages() %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-info" style="background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                            {{ message }}
-                        </div>
+                    {% for category, message in messages %}
+                        {% if category == 'warning' %}
+                            <div class="alert alert-warning" style="background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                                <i class="fas fa-exclamation-triangle"></i> {{ message }}
+                            </div>
+                        {% elif category == 'error' %}
+                            <div class="alert alert-danger" style="background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                                <i class="fas fa-times-circle"></i> {{ message }}
+                            </div>
+                        {% elif category == 'success' %}
+                            <div class="alert alert-success" style="background: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                                <i class="fas fa-check-circle"></i> {{ message }}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info" style="background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                                {{ message }}
+                            </div>
+                        {% endif %}
                     {% endfor %}
                 {% endif %}
             {% endwith %}
@@ -125,6 +147,131 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    
+    {% if current_user.is_authenticated %}
+    <!-- Session超时监控脚本 -->
+    <script>
+        // Session超时时间（毫秒），与后端配置一致：5分钟 = 300秒
+        const SESSION_TIMEOUT = 300 * 1000; // 300秒
+        const WARNING_TIME = 30 * 1000; // 提前30秒警告
+        
+        let lastActivityTime = Date.now();
+        let warningShown = false;
+        let countdownInterval = null;
+        
+        // 刷新session
+        function refreshSession() {
+            fetch("{{ url_for('refresh_session') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Session已刷新');
+                updateActivity();
+                location.reload(); // 刷新页面以更新状态
+            })
+            .catch(error => {
+                console.error('刷新Session失败:', error);
+            });
+        }
+        
+        // 更新最后活动时间
+        function updateActivity() {
+            lastActivityTime = Date.now();
+            warningShown = false;
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            // 移除警告提示
+            const existingWarning = document.getElementById('session-timeout-warning');
+            if (existingWarning) {
+                existingWarning.remove();
+            }
+        }
+        
+        // 显示超时警告
+        function showWarning(secondsLeft) {
+            if (warningShown) return;
+            warningShown = true;
+            
+            const warning = document.createElement('div');
+            warning.id = 'session-timeout-warning';
+            warning.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: #ff9800;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-size: 14px;
+                min-width: 300px;
+            `;
+            warning.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <div style="font-weight: bold; margin-bottom: 5px;">会话即将超时</div>
+                        <div id="countdown-text">您将在 <span id="countdown">${secondsLeft}</span> 秒后自动退出</div>
+                        <button onclick="refreshSession(); return false;" style="margin-top: 8px; background: white; color: #ff9800; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            继续使用
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(warning);
+            
+            // 开始倒计时
+            let timeLeft = secondsLeft;
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                const countdownEl = document.getElementById('countdown');
+                if (countdownEl) {
+                    countdownEl.textContent = timeLeft;
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    // 自动跳转到登录页
+                    window.location.href = "{{ url_for('logout') }}";
+                }
+            }, 1000);
+        }
+        
+        // 检查session超时
+        function checkTimeout() {
+            const now = Date.now();
+            const timeSinceActivity = now - lastActivityTime;
+            const timeUntilTimeout = SESSION_TIMEOUT - timeSinceActivity;
+            
+            if (timeUntilTimeout <= 0) {
+                // 超时，重定向到登录页
+                window.location.href = "{{ url_for('logout') }}";
+            } else if (timeUntilTimeout <= WARNING_TIME && !warningShown) {
+                // 显示警告
+                showWarning(Math.ceil(timeUntilTimeout / 1000));
+            }
+        }
+        
+        // 监听用户活动事件
+        const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+        activityEvents.forEach(event => {
+            document.addEventListener(event, updateActivity, true);
+        });
+        
+        // 每秒检查一次超时状态
+        setInterval(checkTimeout, 1000);
+        
+        // 初始化
+        updateActivity();
+    </script>
+    {% endif %}
     
 </body>
 </html>

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 项目管理系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title" style="margin-bottom: 1rem;">用户管理</h1>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 style="margin: 0; color: #333;">用户列表</h2>
+        <a href="{{ url_for('create_user') }}" class="btn btn-primary">+ 创建用户</a>
+    </div>
+    
+    {% if users %}
+    <div class="table-container">
+        <table class="project-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>用户名</th>
+                    <th>角色</th>
+                    <th>默认工时费用</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><strong>#{{ user.id }}</strong></td>
+                    <td>{{ user.username }}</td>
+                    <td>
+                        {% if user.role == 'admin' %}
+                            <span class="badge" style="background: #dc3545;">管理员</span>
+                        {% elif user.role == 'finance' %}
+                            <span class="badge" style="background: #28a745;">财务</span>
+                        {% elif user.role == 'project_manager' %}
+                            <span class="badge" style="background: #ffc107; color: #333;">项目经理</span>
+                        {% elif user.role == 'developer' %}
+                            <span class="badge" style="background: #667eea;">开发工程师</span>
+                        {% else %}
+                            <span class="badge" style="background: #6c757d;">{{ user.role }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user.default_hourly_rate %}
+                            <strong style="color: #007bff;">¥{{ "%.2f"|format(user.default_hourly_rate) }}</strong>/小时
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '未知' }}</td>
+                    <td>
+                        <a href="{{ url_for('edit_user', user_id=user.id) }}" class="btn btn-primary" style="font-size: 0.8rem;">
+                            <i class="fas fa-edit"></i> 修改信息
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-users" style="font-size: 4rem; color: #ddd; margin-bottom: 1rem;"></i>
+        <h3>暂无用户</h3>
+        <p>点击上方按钮创建第一个用户</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+}
+</style>
+{% endblock %}

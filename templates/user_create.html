@@ -26,6 +26,14 @@
             {{ form.role(class="form-control") }}
         </div>
         
+        <div class="form-group">
+            {{ form.default_hourly_rate.label(class="form-label") }}
+            {{ form.default_hourly_rate(class="form-control", placeholder="请输入默认工时费用（可选）", step="0.01") }}
+            <small class="form-text text-muted" style="color: #6c757d; font-size: 0.875rem; margin-top: 0.25rem; display: block;">
+                为开发工程师设置默认工时费用，创建项目时会自动使用此费用
+            </small>
+        </div>
+        
         <div style="text-align: center; margin-top: 2rem;">
             {{ form.submit(class="btn btn-primary", style="padding: 0.75rem 2rem; font-size: 1rem;") }}
             <a href="{{ url_for('index') }}" class="btn btn-secondary" style="padding: 0.75rem 2rem; font-size: 1rem; margin-left: 1rem;">取消</a>

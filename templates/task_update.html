@@ -26,13 +26,7 @@
                 </span>
             </div>
             <div class="summary-item">
-                <label>优先级：</label>
-                <span class="priority-badge" style="background-color: {{ task.get_priority_color() }};">
-                    {{ task.priority }}
-                </span>
-            </div>
-            <div class="summary-item">
-                <label>分配人：</label>
+                <label>申请人：</label>
                 <span>{{ task.assigner.username }}</span>
             </div>
             {% if task.description %}
@@ -46,18 +40,25 @@
 
     <!-- 状态更新表单 -->
     <div class="update-form">
-        <h2>更新状态</h2>
+        <h2>处理任务</h2>
         <form method="POST">
             {{ form.hidden_tag() }}
             
             <div class="form-group">
-                {{ form.status.label(class="form-label") }}
-                {{ form.status(class="form-control") }}
+                {{ form.approval_action.label(class="form-label") }}
+                {{ form.approval_action(class="form-control", id="approval_action") }}
+                <small class="form-text" id="action_hint" style="display: block; margin-top: 0.5rem;">选择处理操作</small>
+            </div>
+            
+            <div class="form-group" id="assign_group">
+                {{ form.assign_to.label(class="form-label", id="assign_label") }}
+                {{ form.assign_to(class="form-control") }}
+                <small class="form-text" id="assign_hint">必须选择下一个处理人</small>
             </div>
             
             <div class="form-group">
-                {{ form.comment.label(class="form-label") }}
-                {{ form.comment(class="form-control", rows="4", placeholder="请输入处理备注或说明...") }}
+                {{ form.task_comment.label(class="form-label") }}
+                {{ form.task_comment(class="form-control", rows="4", placeholder="请输入处理备注或说明...") }}
             </div>
             
             <div class="form-actions">
@@ -67,6 +68,53 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const actionSelect = document.getElementById('approval_action');
+    const assignGroup = document.getElementById('assign_group');
+    const assignLabel = document.getElementById('assign_label');
+    const assignHint = document.getElementById('assign_hint');
+    const actionHint = document.getElementById('action_hint');
+    
+    function updateForm() {
+        const action = actionSelect.value;
+        if (action === 'agree') {
+            assignLabel.textContent = '下一个处理人';
+            assignHint.textContent = '同意操作必须选择下一个处理人';
+            actionHint.textContent = '同意此任务，必须选择下一个处理人进行处理';
+            assignGroup.style.display = 'block';
+        } else if (action === 'waiting_refund') {
+            assignLabel.textContent = '下一个处理人（必选）';
+            assignHint.innerHTML = '<span style="color: #dc3545;">等待退款操作必须选择下一个处理人来处理退款事宜</span>';
+            actionHint.innerHTML = '<span style="color: #fd7e14;">将此任务标记为等待退款，需指定处理人</span>';
+            assignGroup.style.display = 'block';
+        } else if (action === 'refund_complete') {
+            assignLabel.textContent = '下一个处理人';
+            assignHint.textContent = '退款完成操作无需选择处理人，流程将结束';
+            actionHint.textContent = '标记退款已完成，流程结束，报销状态将设置为退款完成';
+            assignGroup.style.display = 'none';
+        } else if (action === 'complete') {
+            assignLabel.textContent = '下一个处理人';
+            assignHint.textContent = '已完成操作无需选择处理人，流程将结束';
+            actionHint.textContent = '完成此任务并结束流程，报销状态将设置为已完成';
+            assignGroup.style.display = 'none';
+        } else if (action === 'reject') {
+            assignLabel.textContent = '申请人';
+            assignHint.textContent = '拒绝后将分配给申请人重新处理';
+            actionHint.textContent = '拒绝此任务，将分配给申请人重新处理';
+            assignGroup.style.display = 'none';
+        } else {
+            assignHint.textContent = '选择处理人';
+            actionHint.textContent = '选择处理操作';
+            assignGroup.style.display = 'block';
+        }
+    }
+    
+    actionSelect.addEventListener('change', updateForm);
+    updateForm();
+});
+</script>
 
 <style>
 .page-header {
@@ -133,8 +181,7 @@
     white-space: pre-wrap;
 }
 
-.status-badge,
-.priority-badge {
+.status-badge {
     color: white;
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
@@ -166,6 +213,13 @@
     outline: none;
     border-color: #007bff;
     box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.form-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    color: #6c757d;
 }
 
 .form-actions {

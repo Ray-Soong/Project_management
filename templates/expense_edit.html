@@ -11,11 +11,34 @@
 </div>
 
 <div class="form-container">
-    <form method="POST" class="expense-form">
+    <form method="POST" enctype="multipart/form-data" class="expense-form">
         {{ form.hidden_tag() }}
         
         <div class="form-section">
             <h3>基本信息</h3>
+            
+            {% if expense.status == '已拒绝' %}
+            <div class="alert alert-warning" role="alert">
+                <strong><i class="fas fa-exclamation-triangle"></i> 报销被拒绝</strong>
+                <p style="margin-top: 0.5rem; margin-bottom: 0;">
+                    {% if expense.approver %}
+                    拒绝人: <strong>{{ expense.approver.username }}</strong>
+                    {% endif %}
+                    {% if expense.approve_date %}
+                    <br/>拒绝时间: {{ expense.approve_date.strftime('%Y-%m-%d %H:%M:%S') }}
+                    {% endif %}
+                </p>
+                {% if expense.approve_comment %}
+                <p style="margin-top: 0.5rem; margin-bottom: 0; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                    <strong>拒绝原因：</strong><br/>
+                    {{ expense.approve_comment }}
+                </p>
+                {% endif %}
+                <p style="margin-top: 0.5rem; margin-bottom: 0; color: #666;">
+                    请修改报销内容并重新选择审批人进行提交。
+                </p>
+            </div>
+            {% endif %}
             
             <div class="form-group">
                 {{ form.title.label(class="form-label") }}
@@ -34,6 +57,15 @@
                 </div>
             </div>
             
+            {% if expense.status == '已拒绝' %}
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.approver_id.label(class="form-label") }}
+                    {{ form.approver_id(class="form-control", id="approver_id") }}
+                </div>
+            </div>
+            {% endif %}
+            
             <div class="form-group">
                 {{ form.description.label(class="form-label") }}
                 {{ form.description(class="form-control", rows="3") }}
@@ -45,8 +77,8 @@
             
             <div class="form-row">
                 <div class="form-group">
-                    {{ form.item_name.label(class="form-label") }}
-                    {{ form.item_name(class="form-control") }}
+                    {{ form.expense_date.label(class="form-label") }}
+                    {{ form.expense_date(class="form-control") }}
                 </div>
                 
                 <div class="form-group">
@@ -57,19 +89,107 @@
             
             <div class="form-row">
                 <div class="form-group">
+                    {{ form.start_date.label(class="form-label") }}
+                    {{ form.start_date(class="form-control") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.end_date.label(class="form-label") }}
+                    {{ form.end_date(class="form-control") }}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
                     {{ form.amount.label(class="form-label") }}
                     {{ form.amount(class="form-control", step="0.01") }}
                 </div>
                 
                 <div class="form-group">
-                    {{ form.expense_date.label(class="form-label") }}
-                    {{ form.expense_date(class="form-control") }}
+                    {{ form.item_note.label(class="form-label") }}
+                    {{ form.item_note(class="form-control", rows="2") }}
                 </div>
             </div>
             
             <div class="form-group">
-                {{ form.item_description.label(class="form-label") }}
-                {{ form.item_description(class="form-control", rows="3") }}
+                {{ form.receipt_image.label(class="form-label") }}
+                
+                <!-- 已上传文件列表 -->
+                {% if expense.items and expense.items[0].receipt_image %}
+                <div class="uploaded-files-section">
+                    <div class="section-header">
+                        <i class="fas fa-list"></i>
+                        已上传文件
+                        <span class="file-count">{{ (expense.items[0].receipt_image.split(';') | length) }}个</span>
+                    </div>
+                    
+                    <div class="files-grid">
+                        {% set receipt_files = expense.items[0].receipt_image.split(';') %}
+                        {% set receipt_names = expense.items[0].receipt_original_name.split(';') if expense.items[0].receipt_original_name else [] %}
+                        {% for receipt_file in receipt_files %}
+                            {% if receipt_file.strip() %}
+                            <div class="file-card">
+                                <div class="file-header">
+                                    <div class="file-icon-wrapper">
+                                        <i class="fas fa-file-archive"></i>
+                                    </div>
+                                    <div class="file-info">
+                                        <div class="file-name" title="{{ receipt_names[loop.index0].strip() if receipt_names|length > loop.index0 else receipt_file.strip() }}">
+                                            {{ receipt_names[loop.index0].strip() if receipt_names|length > loop.index0 else receipt_file.strip() }}
+                                        </div>
+                                        <div class="file-index">第{{ loop.index }}个文件</div>
+                                    </div>
+                                </div>
+                                <div class="file-actions">
+                                    <a href="{{ url_for('expense_download', item_id=expense.items[0].id, file_index=loop.index0) }}" 
+                                       class="action-btn download-btn" title="下载文件">
+                                        <i class="fas fa-download"></i> 下载
+                                    </a>
+                                    <a href="{{ url_for('expense_view', item_id=expense.items[0].id, file_index=loop.index0) }}" 
+                                       target="_blank" class="action-btn view-btn" title="查看文件">
+                                        <i class="fas fa-eye"></i> 查看
+                                    </a>
+                                    <button type="button" onclick="deleteReceiptFile({{ expense.items[0].id }}, {{ loop.index0 }})" 
+                                       class="action-btn delete-btn" title="删除文件">
+                                        <i class="fas fa-trash-alt"></i> 删除
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- 文件上传区域 -->
+                <div class="file-upload-section">
+                    <div class="upload-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        选择新文件上传
+                    </div>
+                    {{ form.receipt_image(class="form-control file-input", accept=".zip", id="receipt-file-input") }}
+                    <small class="form-text">
+                        <i class="fas fa-info-circle"></i>
+                        仅支持ZIP格式（新文件将追加到现有文件，不覆盖）
+                    </small>
+                    
+                    <!-- 上传进度条 -->
+                    <div id="upload-progress-container" class="upload-progress-container" style="display: none;">
+                        <div class="progress-header">
+                            <span class="progress-label">上传进度</span>
+                            <span class="progress-percentage">0%</span>
+                        </div>
+                        <div class="progress-wrapper">
+                            <div class="progress-bar">
+                                <div id="upload-progress-bar" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="progress-footer">
+                            <span id="upload-file-name" class="file-name-display"></span>
+                            <span id="upload-status-text" class="status-text">准备上传...</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -143,6 +263,310 @@
     box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
 }
 
+/* 文件上传部分样式 */
+.uploaded-files-section {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #333;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #667eea;
+}
+
+.file-count {
+    margin-left: auto;
+    background: #667eea;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.file-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.file-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.file-header {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: flex-start;
+}
+
+.file-icon-wrapper {
+    font-size: 2rem;
+    color: #fd7e14;
+    min-width: 2.5rem;
+}
+
+.file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-name {
+    font-weight: 600;
+    color: #333;
+    word-break: break-word;
+    line-height: 1.4;
+    margin-bottom: 0.3rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.file-index {
+    font-size: 0.85rem;
+    color: #999;
+}
+
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    flex: 1;
+    min-width: 70px;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.download-btn {
+    background: #667eea;
+    color: white;
+    border: 1px solid #667eea;
+}
+
+.download-btn:hover {
+    background: #5568d3;
+    border-color: #5568d3;
+}
+
+.view-btn {
+    background: #28a745;
+    color: white;
+    border: 1px solid #28a745;
+}
+
+.view-btn:hover {
+    background: #218838;
+    border-color: #218838;
+}
+
+.delete-btn {
+    background: #dc3545;
+    color: white;
+    border: 1px solid #dc3545;
+}
+
+.delete-btn:hover {
+    background: #c82333;
+    border-color: #c82333;
+}
+
+/* 文件上传区域 */
+.file-upload-section {
+    background: #f8f9fa;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.upload-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.upload-label i {
+    color: #667eea;
+    font-size: 1.2rem;
+}
+
+.file-input {
+    background: white;
+    border: 2px solid #ddd;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s;
+}
+
+.file-input:hover {
+    border-color: #667eea;
+}
+
+.form-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.form-text i {
+    color: #667eea;
+}
+
+/* 上传进度条 */
+.upload-progress-container {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.progress-label {
+    color: #333;
+}
+
+.progress-percentage {
+    background: #667eea;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.progress-wrapper {
+    margin-bottom: 0.75rem;
+}
+
+.progress-bar {
+    background: #e9ecef;
+    border-radius: 8px;
+    height: 24px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.5rem;
+}
+
+.progress-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    gap: 1rem;
+}
+
+.file-name-display {
+    flex: 1;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.status-text {
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    background: #f0f0f0;
+    color: #333;
+    min-width: 80px;
+    text-align: center;
+}
+
+.status-text.success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-text.error {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .files-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .file-actions {
+        flex-direction: column;
+    }
+    
+    .action-btn {
+        min-width: unset;
+        width: 100%;
+    }
+}
+
+.form-text {
+    display: block;
+    margin-top: 0.25rem;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
 .form-actions {
     margin-top: 2rem;
     display: flex;
@@ -174,6 +598,86 @@
     opacity: 0.9;
 }
 
+/* 上传进度样式 */
+.upload-progress-container {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.progress-label {
+    font-weight: 500;
+    color: #555;
+}
+
+.progress-percentage {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 24px;
+    background-color: #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    border: 1px solid #dee2e6;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.progress-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+#upload-file-name {
+    font-weight: 500;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 0.5rem;
+}
+
+.status-text {
+    font-style: italic;
+    color: #999;
+}
+
+.status-text.success {
+    color: #28a745;
+    font-style: normal;
+}
+
+.status-text.error {
+    color: #dc3545;
+    font-style: normal;
+}
+
 @media (max-width: 768px) {
     .form-row {
         grid-template-columns: 1fr;
@@ -188,4 +692,147 @@
     }
 }
 </style>
+
+<script>
+// 删除报销文件
+function deleteReceiptFile(itemId, fileIndex) {
+    if (!confirm('确定要删除这个文件吗？')) {
+        return;
+    }
+    
+    fetch(`/expense/receipt/delete/${itemId}/${fileIndex}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('文件删除成功');
+            location.reload();
+        } else {
+            alert('删除失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('删除失败，请重试');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 文件上传进度处理
+    var fileInput = document.getElementById('receipt-file-input');
+    var progressContainer = document.getElementById('upload-progress-container');
+    var progressBar = document.getElementById('upload-progress-bar');
+    var progressPercentage = document.querySelector('.progress-percentage');
+    var progressFileName = document.getElementById('upload-file-name');
+    var statusText = document.getElementById('upload-status-text');
+    var form = document.querySelector('.expense-form');
+    var submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+    var uploadInProgress = false;
+    var currentXhr = null;
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                // 如果有上传在进行，先中止它
+                if (uploadInProgress && currentXhr) {
+                    currentXhr.abort();
+                    uploadInProgress = false;
+                }
+                
+                var fileName = this.files[0].name;
+                progressFileName.textContent = '文件：' + fileName;
+                progressContainer.style.display = 'block';
+                progressBar.style.width = '0%';
+                progressPercentage.textContent = '0%';
+                statusText.textContent = '等待上传...';
+                statusText.className = 'status-text';
+                
+                // 自动开始上传
+                uploadFormWithProgress(form, fileInput, statusText, progressBar, progressPercentage);
+            }
+        });
+    }
+
+    // 如果表单通过其他方式提交（没有文件变更），正常提交
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            var hasFile = fileInput && fileInput.files.length > 0;
+            
+            if (hasFile && !uploadInProgress) {
+                e.preventDefault();
+                uploadFormWithProgress(form, fileInput, statusText, progressBar, progressPercentage);
+            }
+        });
+    }
+
+    function uploadFormWithProgress(form, fileInput, statusText, progressBar, progressPercentage) {
+        if (uploadInProgress) return;
+        uploadInProgress = true;
+
+        var formData = new FormData(form);
+        currentXhr = new XMLHttpRequest();
+        var url = form.action || '';
+
+        // 监听上传进度
+        currentXhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                var percentComplete = (e.loaded / e.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+                progressPercentage.textContent = Math.round(percentComplete) + '%';
+                
+                if (percentComplete < 100) {
+                    statusText.textContent = '上传中...';
+                    statusText.className = 'status-text';
+                }
+            }
+        });
+
+        // 上传完成
+        currentXhr.addEventListener('load', function() {
+            if (currentXhr.status === 200 || currentXhr.status === 302) {
+                progressBar.style.width = '100%';
+                progressPercentage.textContent = '100%';
+                statusText.textContent = '上传成功';
+                statusText.className = 'status-text success';
+                if (submitBtn) submitBtn.disabled = true;
+            } else {
+                statusText.textContent = '上传失败，请重试';
+                statusText.className = 'status-text error';
+                uploadInProgress = false;
+                currentXhr = null;
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        });
+
+        // 上传错误
+        currentXhr.addEventListener('error', function() {
+            statusText.textContent = '上传出错，请检查网络';
+            statusText.className = 'status-text error';
+            uploadInProgress = false;
+            currentXhr = null;
+            if (submitBtn) submitBtn.disabled = false;
+        });
+
+        // 上传被中止
+        currentXhr.addEventListener('abort', function() {
+            uploadInProgress = false;
+            currentXhr = null;
+        });
+
+        // 禁用提交按钮
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+        }
+
+        // 发送请求
+        currentXhr.open('POST', url, true);
+        currentXhr.send(formData);
+    }
+});
+</script>
 {% endblock %}

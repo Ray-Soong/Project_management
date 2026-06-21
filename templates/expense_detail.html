@@ -6,16 +6,43 @@
 <div class="page-header">
     <h1><i class="fas fa-receipt"></i> 报销详情</h1>
     <div class="header-actions">
-        {% if current_user.is_admin() and expense.status == '待审批' %}
+        {% set can_approve = current_user.has_full_access() or (current_user.is_project_manager() and expense.project_id and current_user.can_view_project(expense.project_id)) %}
+        {% if can_approve and expense.status in ['新建', '处理中', '等待退款', '退款完成'] %}
             <a href="{{ url_for('expense_approve', expense_id=expense.id) }}" class="btn btn-success">
                 <i class="fas fa-check"></i> 审批
             </a>
         {% endif %}
+
+        {% set can_toggle_refund = current_user.has_full_access() %}
+        {% if can_toggle_refund and expense.status in ['已完成', '退款完成'] %}
+            <form method="POST" action="{{ url_for('expense_toggle_refund', expense_id=expense.id) }}" style="display: inline;">
+                {% if expense.status == '已完成' %}
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-undo"></i> 标记为退款完成
+                    </button>
+                {% else %}
+                    <button type="submit" class="btn btn-info">
+                        <i class="fas fa-check-double"></i> 标记为已完成
+                    </button>
+                {% endif %}
+            </form>
+        {% endif %}
+
+        {% if can_approve and pending_task and pending_task.assigned_to != current_user.id %}
+            <span class="btn btn-info" style="cursor: not-allowed;" title="已分配给其他人处理">
+                <i class="fas fa-user-clock"></i> 等待 {{ pending_task.assigned_user.username }} 处理
+            </span>
+        {% endif %}
         
-        {% if expense.user_id == current_user.id and expense.status == '待审批' %}
+        {% if expense.user_id == current_user.id and expense.status == '新建' %}
             <a href="{{ url_for('expense_edit', expense_id=expense.id) }}" class="btn btn-warning">
                 <i class="fas fa-edit"></i> 编辑
             </a>
+            <form method="POST" action="{{ url_for('expense_delete', expense_id=expense.id) }}" style="display: inline;" onsubmit="return confirm('确定要删除这条报销吗？');">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> 删除
+                </button>
+            </form>
         {% endif %}
         
         <a href="{{ url_for('expense_list') }}" class="btn btn-secondary">
@@ -75,12 +102,18 @@
                     </div>
                     {% endif %}
                     
-                    {% if expense.approver %}
                     <div class="detail-item">
-                        <label>审批人：</label>
-                        <span>{{ expense.approver.username }}</span>
+                        <label>当前处理人：</label>
+                        <span>
+                            {% if pending_task and pending_task.assigned_user %}
+                                {{ pending_task.assigned_user.username }}
+                            {% elif expense.approver %}
+                                {{ expense.approver.username }}
+                            {% else %}
+                                <span class="text-muted">待处理</span>
+                            {% endif %}
+                        </span>
                     </div>
-                    {% endif %}
                 </div>
                 
                 {% if expense.description %}
@@ -98,32 +131,23 @@
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>费用名称</th>
+                                    <th>费用日期</th>
+                                    <th>费用起始日期</th>
+                                    <th>费用结束日期</th>
                                     <th>费用类别</th>
                                     <th>金额</th>
-                                    <th>费用日期</th>
-                                    <th>说明</th>
-                                    <th>凭证</th>
+                                    <th>备注</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for item in expense.items %}
                                 <tr>
-                                    <td>{{ item.item_name }}</td>
+                                    <td>{{ item.expense_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ item.start_date.strftime('%Y-%m-%d') if item.start_date else '-' }}</td>
+                                    <td>{{ item.end_date.strftime('%Y-%m-%d') if item.end_date else '-' }}</td>
                                     <td>{{ item.category }}</td>
                                     <td class="amount">¥{{ "%.2f"|format(item.amount) }}</td>
-                                    <td>{{ item.expense_date.strftime('%Y-%m-%d') }}</td>
                                     <td>{{ item.description or '-' }}</td>
-                                    <td>
-                                        {% if item.receipt_image %}
-                                            <a href="{{ url_for('static', filename='uploads/' + item.receipt_image) }}" 
-                                               target="_blank" class="receipt-link">
-                                                <i class="fas fa-file-image"></i> 查看凭证
-                                            </a>
-                                        {% else %}
-                                            <span class="text-muted">无</span>
-                                        {% endif %}
-                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -131,6 +155,55 @@
                     </div>
                 {% else %}
                     <p class="text-muted">暂无费用明细</p>
+                {% endif %}
+            </div>
+            
+            <div class="detail-section">
+                <h3>报销材料</h3>
+                {% if expense.items and expense.items[0].receipt_image %}
+                    {% set receipt_files = expense.items[0].receipt_image.split(';') %}
+                    {% set receipt_names = (expense.items[0].receipt_original_name or '').split(';') %}
+                    <div class="receipt-materials">
+                        {% for receipt_file in receipt_files %}
+                            {% if receipt_file.strip() %}
+                            <div class="material-item">
+                                <div class="material-icon">
+                                    {% set file_ext = receipt_file.strip().split('.')[-1].lower() %}
+                                    <i class="fas fa-file-archive"></i>
+                                </div>
+                                <div class="material-info">
+                                    <div class="material-name">
+                                        {{ receipt_names[loop.index0].strip() if loop.index0 < receipt_names|length and receipt_names[loop.index0].strip() else '报销凭证文件' }}
+                                    </div>
+                                    <div class="material-meta">
+                                        <span class="file-type">{{ file_ext.upper() }}</span>
+                                        <span class="separator">•</span>
+                                        <span>{{ expense.items[0].expense_date.strftime('%Y-%m-%d') }}</span>
+                                    </div>
+                                </div>
+                                <div class="material-actions">
+                                    {% if file_ext == 'zip' %}
+                                        <a href="{{ url_for('expense_view', item_id=expense.items[0].id, file_index=loop.index0) }}" 
+                                           target="_blank" class="btn-view">
+                                            <i class="fas fa-eye"></i> 查看
+                                        </a>
+                                        <a href="{{ url_for('expense_download', item_id=expense.items[0].id, file_index=loop.index0) }}" 
+                                           class="btn-download">
+                                            <i class="fas fa-download"></i> 下载
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">仅支持ZIP查看/下载</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-materials">
+                        <i class="fas fa-inbox"></i>
+                        <p>暂无上传的报销材料</p>
+                    </div>
                 {% endif %}
             </div>
             
@@ -144,14 +217,20 @@
             {% endif %}
         </div>
         
-        {% if expense.user_id == current_user.id and expense.status == '待审批' %}
+        {% if expense.user_id == current_user.id %}
         <div class="card-actions">
+            {% if expense.status in ['待审批', '已拒绝'] %}
             <form method="POST" action="{{ url_for('expense_delete', expense_id=expense.id) }}" 
                   onsubmit="return confirm('确定要删除这个报销申请吗？');">
                 <button type="submit" class="btn btn-danger">
                     <i class="fas fa-trash"></i> 删除
                 </button>
             </form>
+            {% else %}
+            <button type="button" class="btn btn-danger" disabled title="状态为 {{ expense.status }} 时无法删除报销">
+                <i class="fas fa-trash"></i> 删除
+            </button>
+            {% endif %}
         </div>
         {% endif %}
     </div>
@@ -342,6 +421,128 @@
     text-decoration: underline;
 }
 
+.receipt-materials {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.material-item {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 1.25rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    gap: 1rem;
+}
+
+.material-icon {
+    font-size: 2.5rem;
+    color: #007bff;
+    min-width: 60px;
+    text-align: center;
+}
+
+.material-icon .fa-file-image {
+    color: #28a745;
+}
+
+.material-icon .fa-file-pdf {
+    color: #dc3545;
+}
+
+.material-icon .fa-file-excel {
+    color: #28a745;
+}
+
+.material-icon .fa-file-archive {
+    color: #ffc107;
+}
+
+.material-icon .fa-file-word {
+    color: #2b5797;
+}
+
+.material-info {
+    flex: 1;
+}
+
+.material-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+}
+
+.material-meta {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.material-meta .separator {
+    margin: 0 0.5rem;
+}
+
+.file-type {
+    background: #e7f3ff;
+    color: #0066cc;
+    padding: 0.125rem 0.5rem;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.material-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-view,
+.btn-download {
+    padding: 0.5rem 1rem;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    color: #007bff;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.btn-view:hover {
+    background: #007bff;
+    color: white;
+}
+
+.btn-download {
+    border-color: #28a745;
+    color: #28a745;
+}
+
+.btn-download:hover {
+    background: #28a745;
+    color: white;
+}
+
+.no-materials {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #6c757d;
+}
+
+.no-materials i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.no-materials p {
+    margin: 0;
+    font-size: 1rem;
+}
+
 @media (max-width: 768px) {
     .detail-grid {
         grid-template-columns: 1fr;
@@ -359,6 +560,22 @@
     
     .detail-content {
         padding: 1rem;
+    }
+    
+    .material-item {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .material-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .btn-view,
+    .btn-download {
+        width: 100%;
+        justify-content: center;
     }
 }
 </style>

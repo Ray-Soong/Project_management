@@ -33,6 +33,14 @@
                     {{ form.project_id(class="form-control") }}
                 </div>
             </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    {{ form.approver_id.label(class="form-label") }}
+                    {{ form.approver_id(class="form-control") }}
+                    <small class="form-text">请选择项目经理或管理员/财务进行审批</small>
+                </div>
+            </div>
             
             <div class="form-group">
                 {{ form.description.label(class="form-label") }}
@@ -45,8 +53,8 @@
             
             <div class="form-row">
                 <div class="form-group">
-                    {{ form.item_name.label(class="form-label") }}
-                    {{ form.item_name(class="form-control") }}
+                    {{ form.expense_date.label(class="form-label") }}
+                    {{ form.expense_date(class="form-control") }}
                 </div>
                 
                 <div class="form-group">
@@ -57,25 +65,47 @@
             
             <div class="form-row">
                 <div class="form-group">
+                    {{ form.start_date.label(class="form-label") }}
+                    {{ form.start_date(class="form-control") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.end_date.label(class="form-label") }}
+                    {{ form.end_date(class="form-control") }}
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
                     {{ form.amount.label(class="form-label") }}
                     {{ form.amount(class="form-control", step="0.01") }}
                 </div>
                 
                 <div class="form-group">
-                    {{ form.expense_date.label(class="form-label") }}
-                    {{ form.expense_date(class="form-control") }}
+                    {{ form.item_note.label(class="form-label") }}
+                    {{ form.item_note(class="form-control", rows="2") }}
                 </div>
             </div>
             
             <div class="form-group">
-                {{ form.item_description.label(class="form-label") }}
-                {{ form.item_description(class="form-control", rows="3") }}
-            </div>
-            
-            <div class="form-group">
                 {{ form.receipt_image.label(class="form-label") }}
-                {{ form.receipt_image(class="form-control", accept="image/*,.pdf") }}
-                <small class="form-text">支持上传图片或PDF格式的发票凭证</small>
+                {{ form.receipt_image(class="form-control", accept=".zip", id="receipt-file-input") }}
+                <small class="form-text">仅支持上传ZIP格式的报销资料</small>
+                
+                <!-- 上传进度条 -->
+                <div id="upload-progress-container" class="upload-progress-container" style="display: none; margin-top: 1rem;">
+                    <div class="progress-info">
+                        <span class="progress-label">上传进度：</span>
+                        <span class="progress-percentage">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="upload-progress-bar" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="upload-file-name"></span>
+                        <span id="upload-status-text" class="status-text">准备上传...</span>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -187,6 +217,86 @@
     opacity: 0.9;
 }
 
+/* 上传进度样式 */
+.upload-progress-container {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.progress-label {
+    font-weight: 500;
+    color: #555;
+}
+
+.progress-percentage {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 24px;
+    background-color: #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    border: 1px solid #dee2e6;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.progress-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+#upload-file-name {
+    font-weight: 500;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 0.5rem;
+}
+
+.status-text {
+    font-style: italic;
+    color: #999;
+}
+
+.status-text.success {
+    color: #28a745;
+    font-style: normal;
+}
+
+.status-text.error {
+    color: #dc3545;
+    font-style: normal;
+}
+
 @media (max-width: 768px) {
     .form-row {
         grid-template-columns: 1fr;
@@ -201,4 +311,186 @@
     }
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var projectSelect = document.getElementById('project_id');
+    var approverSelect = document.getElementById('approver_id');
+
+    if (!projectSelect || !approverSelect) {
+        return;
+    }
+
+    function refreshApprovers() {
+        var projectId = projectSelect.value;
+        var url = projectId ? '/api/approvers?project_id=' + encodeURIComponent(projectId) : '/api/approvers';
+
+        fetch(url, { credentials: 'same-origin' })
+            .then(function(response) {
+                if (!response.ok) {
+                    return [];
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                var currentValue = approverSelect.value;
+                approverSelect.innerHTML = '';
+
+                var placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '请选择审批人';
+                approverSelect.appendChild(placeholder);
+
+                data.forEach(function(item) {
+                    var option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = item.label;
+                    approverSelect.appendChild(option);
+                });
+
+                if (currentValue) {
+                    approverSelect.value = currentValue;
+                }
+            })
+            .catch(function() {});
+    }
+
+    projectSelect.addEventListener('change', refreshApprovers);
+    refreshApprovers();
+
+    // 文件上传进度处理
+    var fileInput = document.getElementById('receipt-file-input');
+    var progressContainer = document.getElementById('upload-progress-container');
+    var progressBar = document.getElementById('upload-progress-bar');
+    var progressPercentage = document.querySelector('.progress-percentage');
+    var progressFileName = document.getElementById('upload-file-name');
+    var statusText = document.getElementById('upload-status-text');
+    var form = document.querySelector('.expense-form');
+    var submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+    var uploadInProgress = false;
+    var currentXhr = null;
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                // 仅显示选中的文件信息，不自动上传
+                var fileName = this.files[0].name;
+                progressFileName.textContent = '文件：' + fileName;
+                progressContainer.style.display = 'block';
+                progressBar.style.width = '0%';
+                progressPercentage.textContent = '0%';
+                statusText.textContent = '已选择文件，点击提交以上传';
+                statusText.className = 'status-text';
+            }
+        });
+    }
+
+    // 表单提交时处理
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            var hasFile = fileInput && fileInput.files.length > 0;
+            
+            if (hasFile && !uploadInProgress) {
+                e.preventDefault();
+                uploadFormWithProgress(form, fileInput, statusText, progressBar, progressPercentage);
+            }
+            // 如果没有文件，允许正常提交（常规POST）
+        });
+    }
+
+    function uploadFormWithProgress(form, fileInput, statusText, progressBar, progressPercentage) {
+        if (uploadInProgress) return;
+        uploadInProgress = true;
+
+        var formData = new FormData(form);
+        var url = form.action || '';
+        
+        // 禁用提交按钮并显示上传状态
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+        }
+        
+        statusText.textContent = '上传中...';
+        statusText.className = 'status-text';
+        progressBar.style.width = '5%';
+
+        currentXhr = new XMLHttpRequest();
+
+        // 监听上传进度
+        currentXhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                var percentComplete = (e.loaded / e.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+                progressPercentage.textContent = Math.round(percentComplete) + '%';
+            }
+        });
+
+        // 上传完成
+        currentXhr.addEventListener('load', function() {
+            var xhr = currentXhr;
+            uploadInProgress = false;
+            currentXhr = null;
+            
+            if (xhr.status === 200 || xhr.status === 302) {
+                progressBar.style.width = '100%';
+                progressPercentage.textContent = '100%';
+                statusText.textContent = '上传成功，报销申请已提交';
+                statusText.className = 'status-text success';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '1';
+                }
+                // 2秒后自动跳转到列表页
+                setTimeout(function() {
+                    window.location.href = '/expenses';
+                }, 2000);
+            } else {
+                progressBar.style.width = '0%';
+                progressPercentage.textContent = '0%';
+                statusText.textContent = '上传失败（状态码：' + xhr.status + '），请重试';
+                statusText.className = 'status-text error';
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                }
+            }
+        });
+
+        // 上传错误
+        currentXhr.addEventListener('error', function() {
+            uploadInProgress = false;
+            currentXhr = null;
+            
+            progressBar.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            statusText.textContent = '上传出错，请检查网络连接';
+            statusText.className = 'status-text error';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            }
+        });
+
+        // 上传被中止
+        currentXhr.addEventListener('abort', function() {
+            uploadInProgress = false;
+            currentXhr = null;
+            
+            progressBar.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            statusText.textContent = '上传已取消';
+            statusText.className = 'status-text';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            }
+        });
+
+        // 发送请求
+        currentXhr.open('POST', url, true);
+        currentXhr.send(formData);
+    }
+});
+</script>
 {% endblock %}

@@ -1,0 +1,204 @@
+# =====================================================
+# 项目管理系统 - 群晖NAS Docker Compose配置
+# 优化版本 - 适用于群晖NAS环境
+# =====================================================
+
+version: '3.8'
+
+services:
+  # Web应用服务
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: project_mgmt_web
+    environment:
+      - FLASK_ENV=production
+      - CONFIG_TYPE=docker
+      - DATABASE_URL=sqlite:///app/instance/projects.db
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-this}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - DEV_PASSWORD=${DEV_PASSWORD:-dev123}
+      - WORKERS=${WORKERS:-1}
+      - TIMEOUT=${TIMEOUT:-180}
+      - MAX_REQUESTS=${MAX_REQUESTS:-500}
+    ports:
+      - "5000:5000"
+    volumes:
+      # 数据持久化
+      - ${DATA_DIR:-/volume1/docker/project_mgmt}/data:/app/instance
+      - ${LOG_DIR:-/volume1/docker/project_mgmt}/logs:/app/logs
+      - ${DATA_DIR:-/volume1/docker/project_mgmt}/uploads:/app/static/uploads
+      # 配置文件挂载
+      - ./.env.nas:/app/.env
+    networks:
+      - project_mgmt_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "com.synology.apps.project_mgmt=true"
+
+  # Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: project_mgmt_nginx
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx-nas.conf:/etc/nginx/nginx.conf:ro
+      - ${DATA_DIR:-/volume1/docker/project_mgmt}/uploads:/var/www/static/uploads:ro
+      - ./static:/var/www/static:ro
+      - ${LOG_DIR:-/volume1/docker/project_mgmt}/nginx:/var/log/nginx
+      # SSL证书挂载（可选）
+      - ${SSL_CERT_DIR:-/volume1/docker/project_mgmt/ssl}:/etc/nginx/ssl:ro
+      # Nginx缓存目录
+      - ${DATA_DIR:-/volume1/docker/project_mgmt}/nginx_cache:/var/cache/nginx
+    networks:
+      - project_mgmt_network
+    depends_on:
+      - web
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    labels:
+      - "com.synology.apps.project_mgmt=true"
+
+  # Redis缓存服务（轻量化配置）
+  redis:
+    image: redis:7-alpine
+    container_name: project_mgmt_redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123} --maxmemory 64mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ${DATA_DIR:-/volume1/docker/project_mgmt}/redis:/data
+    networks:
+      - project_mgmt_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 80M
+        reservations:
+          memory: 32M
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 60s
+      timeout: 3s
+      retries: 3
+    labels:
+      - "com.synology.apps.project_mgmt=true"
+    profiles:
+      - cache
+
+  # 数据库备份服务
+  backup:
+    image: alpine:latest
+    container_name: project_mgmt_backup
+    environment:
+      - BACKUP_INTERVAL=${BACKUP_INTERVAL:-daily}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - DATA_DIR=/data
+      - BACKUP_DIR=/backups
+    volumes:
+      - ${DATA_DIR:-/volume1/docker/project_mgmt}/data:/data:ro
+      - ${BACKUP_DIR:-/volume1/docker/project_mgmt/backups}:/backups
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+    networks:
+      - project_mgmt_network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        apk add --no-cache dcron sqlite &&
+        echo '0 2 * * * /usr/local/bin/backup.sh' | crontab - &&
+        crond -f -d 8
+      "
+    labels:
+      - "com.synology.apps.project_mgmt=true"
+
+  # 监控服务（Prometheus - 可选）
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: project_mgmt_prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ${DATA_DIR:-/volume1/docker/project_mgmt}/prometheus:/prometheus
+    networks:
+      - project_mgmt_network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    profiles:
+      - monitoring
+    labels:
+      - "com.synology.apps.project_mgmt=true"
+
+  # Grafana监控面板（可选）
+  grafana:
+    image: grafana/grafana:latest
+    container_name: project_mgmt_grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-grafana123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ${DATA_DIR:-/volume1/docker/project_mgmt}/grafana:/var/lib/grafana
+    networks:
+      - project_mgmt_network
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    labels:
+      - "com.synology.apps.project_mgmt=true"
+
+# 网络配置
+networks:
+  project_mgmt_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# 数据卷配置
+volumes:
+  project_mgmt_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-/volume1/docker/project_mgmt}/data
+  
+  project_mgmt_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOG_DIR:-/volume1/docker/project_mgmt}/logs
+
+# 标签
+x-common-labels: &common-labels
+  com.synology.apps.project_mgmt: "true"
+  com.synology.apps.version: "1.0.0"
+  com.synology.apps.description: "项目管理系统"

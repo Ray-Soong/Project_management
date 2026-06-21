@@ -3,8 +3,8 @@
 {% block title %}报销列表 - 项目管理系统{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1><i class="fas fa-receipt"></i> 报销列表</h1>
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <h1 class="page-title" style="margin: 0;">报销列表</h1>
     <div class="header-actions">
         {% if not current_user.is_admin() %}
             <a href="{{ url_for('expense_create') }}" class="btn btn-primary">
@@ -19,6 +19,129 @@
     </div>
 </div>
 
+<!-- 筛选表单 -->
+<div class="card" style="margin-bottom: 1rem; padding: 0.75rem;">
+    <form method="GET" action="{{ url_for('expense_list') }}" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        {% if current_user.has_full_access() %}
+        <div class="form-group" style="margin-bottom: 0; min-width: 120px;">
+            <label class="form-label" style="margin-bottom: 0.2rem; font-size: 0.85rem;">申请人</label>
+            <select name="user_id" class="form-control" style="padding: 0.3rem 0.4rem; font-size: 0.9rem;">
+                <option value="">全部</option>
+                {% for user in all_users %}
+                    <option value="{{ user.id }}" {% if selected_user_id == user.id %}selected{% endif %}>
+                        {{ user.username }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        
+        <div class="form-group" style="margin-bottom: 0; min-width: 120px;">
+            <label class="form-label" style="margin-bottom: 0.2rem; font-size: 0.85rem;">费用类型</label>
+            <select name="expense_type" class="form-control" style="padding: 0.3rem 0.4rem; font-size: 0.9rem;">
+                <option value="">全部</option>
+                {% for etype in all_expense_types %}
+                    <option value="{{ etype }}" {% if selected_expense_type == etype %}selected{% endif %}>
+                        {{ etype }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+            <label class="form-label" style="margin-bottom: 0.2rem; font-size: 0.85rem;">费用类别</label>
+            <select name="expense_category" class="form-control" style="padding: 0.3rem 0.4rem; font-size: 0.9rem;">
+                <option value="">全部</option>
+                {% for category in all_expense_categories %}
+                    <option value="{{ category }}" {% if selected_expense_category == category %}selected{% endif %}>
+                        {{ category }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0; min-width: 140px;">
+            <label class="form-label" style="margin-bottom: 0.2rem; font-size: 0.85rem;">关联项目</label>
+            <select name="project_id" class="form-control" style="padding: 0.3rem 0.4rem; font-size: 0.9rem;">
+                <option value="">全部</option>
+                {% for project in all_projects %}
+                    <option value="{{ project.id }}" {% if selected_project_id == project.id %}selected{% endif %}>
+                        {{ project.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0; min-width: 110px;">
+            <label class="form-label" style="margin-bottom: 0.2rem; font-size: 0.85rem;">提交日期(起)</label>
+            <input type="date" name="submit_date_from" class="form-control" value="{{ submit_date_from or '' }}" style="padding: 0.3rem 0.4rem; font-size: 0.9rem;">
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0; min-width: 110px;">
+            <label class="form-label" style="margin-bottom: 0.2rem; font-size: 0.85rem;">提交日期(止)</label>
+            <input type="date" name="submit_date_to" class="form-control" value="{{ submit_date_to or '' }}" style="padding: 0.3rem 0.4rem; font-size: 0.9rem;">
+        </div>
+        
+        <div style="display: flex; gap: 0.3rem; align-items: flex-end; margin-top: 1.35rem;">
+            <button type="submit" class="btn btn-primary" style="white-space: nowrap; padding: 0.4rem 0.8rem; font-size: 0.9rem;">
+                <i class="fas fa-search"></i> 筛选
+            </button>
+            <a href="{{ url_for('expense_list') }}" class="btn btn-secondary" style="white-space: nowrap; padding: 0.4rem 0.8rem; font-size: 0.9rem;">
+                <i class="fas fa-redo"></i> 重置
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- 筛选提示 -->
+{% if selected_user_id or selected_expense_type or selected_project_id or selected_expense_category or submit_date_from or submit_date_to %}
+<div style="background: #e7f3ff; border-left: 4px solid #667eea; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; color: #333; flex-wrap: wrap;">
+        <i class="fas fa-filter" style="color: #667eea;"></i>
+        <strong>当前筛选条件：</strong>
+        {% if selected_user_id %}
+            <span class="filter-tag">申请人: 
+                {% for user in all_users %}
+                    {% if user.id == selected_user_id %}{{ user.username }}{% endif %}
+                {% endfor %}
+            </span>
+        {% endif %}
+        {% if selected_expense_type %}
+            <span class="filter-tag">费用类型: {{ selected_expense_type }}</span>
+        {% endif %}
+        {% if selected_expense_category %}
+            <span class="filter-tag">费用类别: {{ selected_expense_category }}</span>
+        {% endif %}
+        {% if selected_project_id %}
+            <span class="filter-tag">项目: 
+                {% for project in all_projects %}
+                    {% if project.id == selected_project_id %}{{ project.name }}{% endif %}
+                {% endfor %}
+            </span>
+        {% endif %}
+        {% if submit_date_from or submit_date_to %}
+            <span class="filter-tag">提交日期: 
+                {% if submit_date_from %}{{ submit_date_from }}{% else %}不限{% endif %} 至 
+                {% if submit_date_to %}{{ submit_date_to }}{% else %}不限{% endif %}
+            </span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- 总金额显示 -->
+{% if expenses %}
+<div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="color: #333;">
+        <strong>{{ expenses|length }} 条记录</strong>
+    </div>
+    <div style="color: #333;">
+        <strong style="font-size: 1.1rem;">合计金额：</strong>
+        <span style="font-size: 1.2rem; color: #d9534f; font-weight: bold;">¥{{ "%.2f"|format(total_amount) }}</span>
+    </div>
+</div>
+{% endif %}
+
 {% if expenses %}
     <div class="card">
         <div class="table-responsive">
@@ -29,9 +152,11 @@
                         <th>标题</th>
                         <th>申请人</th>
                         <th>费用类型</th>
+                        <th>费用类别</th>
                         <th>关联项目</th>
                         <th>总金额</th>
                         <th>状态</th>
+                        <th>当前审核人</th>
                         <th>提交时间</th>
                         <th>操作</th>
                     </tr>
@@ -43,6 +168,13 @@
                         <td>{{ expense.title }}</td>
                         <td>{{ expense.user.username }}</td>
                         <td>{{ expense.expense_type }}</td>
+                        <td>
+                            {% if expense.items %}
+                                <span class="category-tag">{{ expense.items|map(attribute='category')|list|join(', ') }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if expense.project %}
                                 {{ expense.project.name }}
@@ -56,26 +188,40 @@
                                 {{ expense.status }}
                             </span>
                         </td>
+                        <td>
+                            {% if expense.status == '已拒绝' %}
+                                <span class="approver-badge" style="background-color: #dc3545; color: white;">
+                                    拒绝 - {{ expense.approver.username if expense.approver else '未知审批人' }}
+                                </span>
+                            {% elif expense.pending_task %}
+                                <span class="approver-badge">{{ expense.pending_task.assigned_user.username }}</span>
+                            {% elif expense.approver %}
+                                <span class="approver-badge">{{ expense.approver.username }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td>{{ expense.submit_date.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td>
                             <div class="btn-group">
+                                {% set can_approve = current_user.has_full_access() or (current_user.is_project_manager() and expense.project_id and current_user.can_view_project(expense.project_id)) %}
                                 <a href="{{ url_for('expense_detail', expense_id=expense.id) }}" 
                                    class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-eye"></i> 查看
                                 </a>
-                                
-                                {% if current_user.is_admin() and expense.status == '待审批' %}
-                                    <a href="{{ url_for('expense_approve', expense_id=expense.id) }}" 
-                                       class="btn btn-sm btn-outline-success">
-                                        <i class="fas fa-check"></i> 审批
-                                    </a>
-                                {% endif %}
-                                
-                                {% if expense.user_id == current_user.id and expense.status == '待审批' %}
+                                {% if expense.user_id == current_user.id and expense.status == '新建' %}
                                     <a href="{{ url_for('expense_edit', expense_id=expense.id) }}" 
                                        class="btn btn-sm btn-outline-warning">
                                         <i class="fas fa-edit"></i> 编辑
                                     </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                                            onclick="if(confirm('确定要删除这条报销吗？')) { document.getElementById('delete-form-{{ expense.id }}').submit(); }">
+                                        <i class="fas fa-trash"></i> 删除
+                                    </button>
+                                    <form id="delete-form-{{ expense.id }}" method="POST" 
+                                          action="{{ url_for('expense_delete', expense_id=expense.id) }}" 
+                                          style="display: none;">
+                                    </form>
                                 {% endif %}
                             </div>
                         </td>
@@ -110,6 +256,17 @@
     border-radius: 12px;
     font-size: 0.875rem;
     font-weight: 500;
+}
+
+.approver-badge {
+    color: #495057;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background-color: #e7f3ff;
+    border-left: 3px solid #0066cc;
+    display: inline-block;
 }
 
 .btn-group {
@@ -198,6 +355,27 @@
 
 .btn:hover {
     opacity: 0.9;
+}
+
+.filter-tag {
+    background: #e8f4f8;
+    color: #1f5a6b;
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    display: inline-block;
+    margin: 0.2rem;
+    border: 1px solid #b3d9e8;
+}
+
+.category-tag {
+    background: #e8f5e9;
+    color: #1b5e20;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    display: inline-block;
+    border: 1px solid #c8e6c9;
 }
 </style>
 {% endblock %}

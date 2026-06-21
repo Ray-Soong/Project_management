@@ -1,2 +1,2 @@
-# Project_management
-Manage the project, list all projects.
+# project_mgmt
+record the information for all projects

@@ -3,31 +3,24 @@
 {% block title %}编辑项目 - 项目管理系统{% endblock %}
 
 {% block content %}
-<h1 class="page-title">编辑项目</h1>
+<h1 class="page-title" style="margin-bottom: 1rem;">编辑项目</h1>
 
 <div class="card" style="max-width: 1400px; margin: 0 auto; padding: 2rem;">
-    <h2 style="margin-bottom: 2rem; color: #333; text-align: center;">项目信息</h2>
-    <p style="text-align: center; color: #666; margin-bottom: 2rem;">当前状态: <strong>{{ project.status }}</strong></p>
     <!-- 自定义字段管理按钮 -->
-    <div style="text-align: right; margin-bottom: 2rem;">
+    <div style="text-align: right; margin-bottom: 1rem;">
         <a href="{{ url_for('manage_custom_fields') }}" class="btn btn-outline-secondary" style="margin-right: 1rem;">
             <i class="fas fa-cog"></i> 管理自定义字段
         </a>
     </div>
 
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {{ form.hidden_tag() }}
         
         <!-- 基本信息行1 -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
             <div class="form-group">
                 {{ form.name.label(class="form-label") }}
                 {{ form.name(class="form-control", placeholder="请输入项目名称") }}
-            </div>
-            
-            <div class="form-group">
-                {{ form.manager.label(class="form-label") }}
-                {{ form.manager(class="form-control", placeholder="请输入项目管理者姓名") }}
             </div>
             
             <div class="form-group">
@@ -36,8 +29,12 @@
             </div>
         </div>
         
-        <!-- 基本信息行2 -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+                {{ form.final_customer.label(class="form-label") }}
+                {{ form.final_customer(class="form-control", placeholder="请输入最终客户") }}
+            </div>
+            
             <div class="form-group">
                 {{ form.project_type.label(class="form-label") }}
                 {{ form.project_type(class="form-control") }}
@@ -72,56 +69,197 @@
             </div>
         </div>
         
-        <!-- 合同和付款信息 -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-            <div class="form-group">
-                {{ form.contract_amount_with_tax.label(class="form-label") }}
-                {{ form.contract_amount_with_tax(class="form-control", placeholder="含税合同金额", step="0.01") }}
-            </div>
+        <!-- 合同相关信息 -->
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e1e5e9; margin-bottom: 1rem;">
+            <h3 style="margin-bottom: 1.5rem; color: #333;">
+                <i class="fas fa-file-contract" style="color: #667eea; margin-right: 0.5rem;"></i>
+                合同信息
+            </h3>
             
-            <div class="form-group">
-                {{ form.contract_amount_without_tax.label(class="form-label") }}
-                {{ form.contract_amount_without_tax(class="form-control", placeholder="不含税合同金额", step="0.01") }}
-            </div>
-            
-            <div class="form-group">
-                {{ form.payment_method.label(class="form-label") }}
-                {{ form.payment_method(class="form-control") }}
-            </div>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-            <div class="form-group">
-                {{ form.payment_received.label(class="form-label") }}
-                {{ form.payment_received(class="form-control", placeholder="已回款金额", step="0.01") }}
-            </div>
-            
-            <div class="form-group">
-                {{ form.contract_signing_date.label(class="form-label") }}
-                {{ form.contract_signing_date(class="form-control") }}
-            </div>
-            
-            <div class="form-group">
-                {{ form.settlement_date.label(class="form-label") }}
-                {{ form.settlement_date(class="form-control") }}
-            </div>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-            <div class="form-group">
-                {{ form.invoice_date.label(class="form-label") }}
-                {{ form.invoice_date(class="form-control") }}
-            </div>
-            
-            <div class="form-group">
-                <div style="display: flex; align-items: center; gap: 0.5rem; padding-top: 2rem;">
-                    {{ form.invoice_issued() }}
-                    {{ form.invoice_issued.label(class="form-label", style="margin: 0;") }}
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.contract_amount_with_tax.label(class="form-label") }}
+                    {{ form.contract_amount_with_tax(class="form-control", placeholder="含税合同金额", step="0.01") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.contract_amount_without_tax.label(class="form-label") }}
+                    {{ form.contract_amount_without_tax(class="form-control", placeholder="不含税合同金额", step="0.01") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.contract_signing_date.label(class="form-label") }}
+                    {{ form.contract_signing_date(class="form-control") }}
                 </div>
             </div>
             
-            <div class="form-group">
-                <!-- 空白列 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.po_number.label(class="form-label") }}
+                    {{ form.po_number(class="form-control", placeholder="请输入PO号") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.payment_method.label(class="form-label") }}
+                    {{ form.payment_method(class="form-control", id="payment_method") }}
+                </div>
+                
+                <div class="form-group">
+                    <!-- 空白列 -->
+                </div>
+            </div>
+            
+            <!-- 阶段付款备注（条件显示） -->
+            <div id="stage_payment_notes_group" style="{% if project.payment_method and ('\u5206\u9636\u6bb5\u4ed8\u6b3e' in project.payment_method or project.payment_method == '多阶段') %}display: block;{% else %}display: none;{% endif %} margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.stage_payment_notes.label(class="form-label") }}
+                    {{ form.stage_payment_notes(class="form-control", rows="3", placeholder="请输入阶段付款相关备注信息") }}
+                </div>
+            </div>
+            
+            <!-- 合同文件管理 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.contract_file.label(class="form-label") }}
+                    {{ form.contract_file(class="form-control", accept=".pdf,.doc,.docx,.jpg,.jpeg,.png") }}
+                    <small style="color: #666; font-size: 0.85rem;">支持PDF、Word、图片格式</small>
+                    {% if project.contract_file %}
+                    <div style="margin-top: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <a href="{{ url_for('download_contract_file', project_id=project.id) }}" style="color: #667eea; text-decoration: none;" target="_blank">
+                                <i class="fas fa-file-download"></i> 当前文件: {{ project.contract_file.split('/')[-1] }}
+                            </a>
+                            <button type="button" onclick="deleteContractFile()" class="btn btn-sm" style="background: #dc3545; color: white; padding: 0.2rem 0.5rem; font-size: 0.8rem;">
+                                <i class="fas fa-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <!-- 空白列 -->
+                </div>
+                
+                <div class="form-group">
+                    <!-- 空白列 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 发票相关信息 -->
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e1e5e9; margin-bottom: 1rem;">
+            <h3 style="margin-bottom: 1.5rem; color: #333;">
+                <i class="fas fa-receipt" style="color: #667eea; margin-right: 0.5rem;"></i>
+                发票信息
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.invoice_stage.label(class="form-label") }}
+                    {{ form.invoice_stage(class="form-control", id="invoice_stage") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.invoice_date.label(class="form-label") }}
+                    {{ form.invoice_date(class="form-control") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.invoice_amount.label(class="form-label") }}
+                    {{ form.invoice_amount(class="form-control", placeholder="请输入发票金额", step="0.01") }}
+                </div>
+            </div>
+            
+            <div class="form-group" id="invoice_notes_group" style="{% if project.invoice_stage and project.invoice_stage != '未开' %}display: block;{% else %}display: none;{% endif %}">
+                {{ form.invoice_notes.label(class="form-label") }}
+                {{ form.invoice_notes(class="form-control", rows="3", placeholder="请输入开票备注信息") }}
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.invoice_amount_issued.label(class="form-label") }}
+                    {{ form.invoice_amount_issued(class="form-control", placeholder="已开发票金额", step="0.01") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.current_invoice_amount.label(class="form-label") }}
+                    {{ form.current_invoice_amount(class="form-control", placeholder="当前发票金额", step="0.01") }}
+                </div>
+            </div>
+            
+            <!-- 发票金额和文件管理 -->
+            <div id="invoice_details_group" style="{% if project.invoice_stage and project.invoice_stage != '未开' %}display: block;{% else %}display: none;{% endif %} margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.invoice_file.label(class="form-label") }}
+                    {{ form.invoice_file(class="form-control", accept=".pdf,.zip") }}
+                    <small style="color: #666; font-size: 0.85rem;">支持PDF、ZIP格式（可上传多个文件）</small>
+                    
+                    <!-- 已上传文件列表 -->
+                    {% if project.invoice_files %}
+                    <div style="margin-top: 1rem; padding: 0.8rem; background: #f8f9fa; border-radius: 4px;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; color: #333;">已上传文件 ({{ project.invoice_files|length }}个):</div>
+                        {% for invoice_file in project.invoice_files %}
+                        <div class="invoice-file-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; margin-bottom: 0.3rem; background: white; border: 1px solid #ddd; border-radius: 4px;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+                                <i class="fas {{ 'fa-file-pdf' if invoice_file.file_type == 'pdf' else 'fa-file-archive' }}" style="color: {% if invoice_file.file_type == 'pdf' %}#dc3545{% else %}#fd7e14{% endif %};"></i>
+                                <a href="{{ url_for('download_invoice_file_by_id', file_id=invoice_file.id) }}" style="color: #667eea; text-decoration: none; word-break: break-all; font-size: 0.9rem;">
+                                    {{ invoice_file.file_name }}
+                                </a>
+                            </div>
+                            <button type="button" onclick="deleteInvoiceFileFromEdit({{ invoice_file.id }})" class="btn btn-sm" style="background: #dc3545; color: white; padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% elif project.invoice_file %}
+                    <!-- 兼容旧的单文件记录 -->
+                    <div style="margin-top: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <a href="{{ url_for('download_invoice_file', project_id=project.id) }}" style="color: #667eea; text-decoration: none;" target="_blank">
+                                <i class="fas fa-file-download"></i> 当前文件: {{ project.invoice_file.split('/')[-1] }}
+                            </a>
+                            <button type="button" onclick="deleteInvoiceFile()" class="btn btn-sm" style="background: #dc3545; color: white; padding: 0.2rem 0.5rem; font-size: 0.8rem;">
+                                <i class="fas fa-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 回款相关信息 -->
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #e1e5e9; margin-bottom: 1rem;">
+            <h3 style="margin-bottom: 1.5rem; color: #333;">
+                <i class="fas fa-money-bill-wave" style="color: #667eea; margin-right: 0.5rem;"></i>
+                回款信息
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.accounts_receivable.label(class="form-label") }}
+                    {{ form.accounts_receivable(class="form-control", placeholder="应收账款", step="0.01") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.payment_received.label(class="form-label") }}
+                    {{ form.payment_received(class="form-control", placeholder="回款金额(含税)", step="0.01") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.settlement_date.label(class="form-label") }}
+                    {{ form.settlement_date(class="form-control") }}
+                </div>
+            </div>
+            
+            <!-- 回款金额备注 -->
+            <div style="margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.payment_amount_notes.label(class="form-label") }}
+                    {{ form.payment_amount_notes(class="form-control", rows="3", placeholder="请输入回款金额相关备注信息") }}
+                </div>
             </div>
         </div>
 
@@ -132,25 +270,65 @@
                 成本信息
             </h3>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                 <div class="form-group">
-                    {{ form.outsourcing_cost.label(class="form-label") }}
-                    {{ form.outsourcing_cost(class="form-control", placeholder="外包费用金额", step="0.01") }}
+                    {{ form.supplier_name.label(class="form-label") }}
+                    {{ form.supplier_name(class="form-control", placeholder="请输入供应商名称") }}
                 </div>
                 
+                <div class="form-group">
+                    {{ form.outsourcing_cost.label(class="form-label") }}
+                    {{ form.outsourcing_cost(class="form-control", placeholder="外包费用(含税)金额", step="0.01") }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.outsourcing_cost_without_tax.label(class="form-label") }}
+                    {{ form.outsourcing_cost_without_tax(class="form-control", placeholder="外包费用(不含税)金额", step="0.01") }}
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.supplier_pending_amount.label(class="form-label") }}
+                    {{ form.supplier_pending_amount(class="form-control", placeholder="供应商待付金额(不含税)", step="0.01") }}
+                </div>
+                
+                <div class="form-group"></div>
+                <div class="form-group"></div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div class="form-group">
+                    {{ form.supplier_invoice_issued.label(class="form-label") }}
+                    <div style="padding-top: 0.5rem;">
+                        {{ form.supplier_invoice_issued() }} 已开具
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 1rem;">
+                {{ form.outsourcing_cost_notes.label(class="form-label") }}
+                {{ form.outsourcing_cost_notes(class="form-control", 
+                    placeholder="请输入外包费用(含税)相关备注信息", 
+                    rows="3",
+                    style="resize: vertical;") }}
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
                 <div class="form-group">
                     {{ form.indirect_cost.label(class="form-label") }}
                     {{ form.indirect_cost(class="form-control", placeholder="间接成本金额", step="0.01") }}
                 </div>
+                <div class="form-group" style="grid-column: span 2;"></div>
             </div>
             
             <div class="form-group">
                 {{ form.indirect_cost_notes.label(class="form-label") }}
                 <small style="color: #666; display: block; margin-bottom: 0.5rem;">
-                    <i class="fas fa-info-circle"></i> 请详细说明间接成本的具体项目，例如：房租水电200元，电脑报销300元
+                    <i class="fas fa-info-circle"></i> 请详细说明间接成本的具体项目，例如：商务居间费、管理费、咨询费、人力资源费等。
                 </small>
                 {{ form.indirect_cost_notes(class="form-control", 
-                    placeholder="例如：房租水电200元，电脑报销300元，办公用品50元", 
+                    placeholder="例如：商务居间费、管理费、咨询费等", 
                     rows="4",
                     style="resize: vertical;") }}
             </div>
@@ -236,6 +414,21 @@
                 {% endif %}
             </div>
         </div>
+        
+        <!-- 项目经理分配 -->
+        <div class="form-group" style="margin-bottom: 2rem;">
+            {{ form.assigned_managers.label(class="form-label") }}
+            <div style="background: #fff3e0; padding: 1.5rem; border-radius: 8px; border: 2px solid #ffb74d;">
+                {% for subfield in form.assigned_managers %}
+                    <div style="margin-bottom: 0.75rem;">
+                        {{ subfield() }} {{ subfield.label() }}
+                    </div>
+                {% endfor %}
+                {% if not form.assigned_managers.choices %}
+                    <p style="color: #666; margin: 0;">暂无可分配的项目经理</p>
+                {% endif %}
+            </div>
+        </div>
 
         <div style="text-align: center; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #eee;">
             {{ form.submit(class="btn btn-primary", style="padding: 1rem 3rem; font-size: 1.1rem; margin-right: 1rem;", value="更新项目") }}
@@ -254,6 +447,157 @@ function toggleCustomFields() {
     }
 }
 
+// 自动保存功能
+let autoSaveTimer = null;
+let lastSaveTime = null;
+const AUTO_SAVE_INTERVAL = 1 * 60 * 1000; // 1分钟
+
+// 创建自动保存状态提示元素
+function createAutoSaveIndicator() {
+    const indicator = document.createElement('div');
+    indicator.id = 'autoSaveIndicator';
+    indicator.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: #28a745;
+        color: white;
+        border-radius: 6px;
+        font-size: 14px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        gap: 8px;
+    `;
+    document.body.appendChild(indicator);
+    return indicator;
+}
+
+// 显示保存状态
+function showSaveStatus(message, type = 'success') {
+    const indicator = document.getElementById('autoSaveIndicator') || createAutoSaveIndicator();
+    const colors = {
+        success: '#28a745',
+        error: '#dc3545',
+        saving: '#007bff'
+    };
+    
+    indicator.style.background = colors[type] || colors.success;
+    indicator.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'spinner fa-spin'}"></i>
+        ${message}
+    `;
+    indicator.style.display = 'flex';
+    
+    // 3秒后自动隐藏（除非是保存中状态）
+    if (type !== 'saving') {
+        setTimeout(() => {
+            indicator.style.display = 'none';
+        }, 3000);
+    }
+}
+
+// 收集表单数据
+function collectFormData() {
+    const formData = {};
+    
+    // 收集基本字段
+    const fields = [
+        'name', 'manager', 'customer_name', 'project_type', 'status',
+        'estimated_hours', 'start_date', 'planned_end_date', 'acceptance_date',
+        'contract_amount_with_tax', 'contract_amount_without_tax', 'payment_method',
+        'payment_received', 'contract_signing_date', 'settlement_date', 
+        'invoice_date', 'outsourcing_cost', 'indirect_cost', 'indirect_cost_notes', 'po_number'
+    ];
+    
+    fields.forEach(field => {
+        const input = document.querySelector(`[name="${field}"]`);
+        if (input) {
+            if (input.type === 'checkbox') {
+                formData[field] = input.checked;
+            } else {
+                formData[field] = input.value;
+            }
+        }
+    });
+    
+    // 收集自定义字段
+    const customFields = {};
+    document.querySelectorAll('[name^="custom_field_"]').forEach(input => {
+        const fieldId = input.name.replace('custom_field_', '');
+        if (input.type === 'checkbox') {
+            customFields[fieldId] = input.checked ? '1' : '0';
+        } else {
+            customFields[fieldId] = input.value;
+        }
+    });
+    
+    if (Object.keys(customFields).length > 0) {
+        formData.custom_fields = customFields;
+    }
+    
+    return formData;
+}
+
+// 执行自动保存
+function performAutoSave() {
+    const projectId = {{ project.id }};
+    const formData = collectFormData();
+    
+    showSaveStatus('正在保存...', 'saving');
+    
+    fetch(`/projects/${projectId}/autosave`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            lastSaveTime = new Date();
+            showSaveStatus(`自动保存成功 (${data.timestamp})`, 'success');
+            console.log('项目已更新:', data.project_name, '-', data.project_status);
+            // 标记数据已更新，提醒用户列表数据需要刷新
+            sessionStorage.setItem('projectDataUpdated', 'true');
+            sessionStorage.setItem('lastUpdatedProject', data.project_name);
+        } else {
+            showSaveStatus(data.message || '自动保存失败', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('自动保存失败:', error);
+        showSaveStatus('自动保存失败，请检查网络连接', 'error');
+    });
+}
+
+// 启动自动保存定时器
+function startAutoSave() {
+    // 清除已存在的定时器
+    if (autoSaveTimer) {
+        clearInterval(autoSaveTimer);
+    }
+    
+    // 每1分钟执行一次自动保存
+    autoSaveTimer = setInterval(() => {
+        performAutoSave();
+    }, AUTO_SAVE_INTERVAL);
+    
+    console.log('自动保存已启动,每1分钟保存一次');
+}
+
+// 停止自动保存
+function stopAutoSave() {
+    if (autoSaveTimer) {
+        clearInterval(autoSaveTimer);
+        autoSaveTimer = null;
+        console.log('自动保存已停止');
+    }
+}
+
 // 页面加载时检查是否有自定义字段值，如果有则自动显示
 document.addEventListener('DOMContentLoaded', function() {
     const customFieldInputs = document.querySelectorAll('[name^="custom_field_"]');
@@ -266,8 +610,108 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     if (hasValues) {
-        document.getElementById('customFieldsSection').style.display = 'block';
+        const section = document.getElementById('customFieldsSection');
+        if (section) {
+            section.style.display = 'block';
+        }
     }
+    
+    // 启动自动保存
+    startAutoSave();
+    
+    // 添加提示信息
+    const formTitle = document.querySelector('.page-title');
+    if (formTitle) {
+        const autoSaveHint = document.createElement('div');
+        autoSaveHint.style.cssText = `
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+        `;
+        autoSaveHint.innerHTML = '<i class="fas fa-info-circle"></i> 编辑内容将每1分钟自动保存';
+        formTitle.parentNode.insertBefore(autoSaveHint, formTitle.nextSibling);
+    }
+});
+
+// 删除发票文件
+function deleteInvoiceFile() {
+    if (confirm('确定要删除当前发票文件吗？')) {
+        fetch('{{ url_for("delete_invoice_file", project_id=project.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('文件删除成功！');
+                location.reload();
+            } else {
+                alert('删除失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除失败，请重试');
+        });
+    }
+}
+
+// 删除多文件中的单个发票文件
+function deleteInvoiceFileFromEdit(fileId) {
+    if (confirm('确定要删除这个发票文件吗？')) {
+        fetch(`/invoice_files/${fileId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('文件删除成功！');
+                location.reload();
+            } else {
+                alert('删除失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除失败，请重试');
+        });
+    }
+}
+
+// 删除合同文件
+function deleteContractFile() {
+    if (confirm('确定要删除当前合同文件吗？')) {
+        fetch('{{ url_for("delete_contract_file", project_id=project.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('文件删除成功！');
+                location.reload();
+            } else {
+                alert('删除失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除失败，请重试');
+        });
+    }
+}
+
+// 页面卸载时停止自动保存
+window.addEventListener('beforeunload', function() {
+    stopAutoSave();
 });
 </script>
 <style>
@@ -314,4 +758,48 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 </style>
+
+<script>
+// 根据付款方式显示/隐藏阶段付款备注和开票备注
+document.addEventListener('DOMContentLoaded', function() {
+    const paymentMethod = document.getElementById('payment_method');
+    const stagePaymentNotesGroup = document.getElementById('stage_payment_notes_group');
+    const invoiceStage = document.getElementById('invoice_stage');
+    const invoiceNotesGroup = document.getElementById('invoice_notes_group');
+    
+    if (paymentMethod && stagePaymentNotesGroup) {
+        function toggleStagePaymentNotes() {
+            if (paymentMethod.value.includes('分阶段付款') || paymentMethod.value === '多阶段') {
+                stagePaymentNotesGroup.style.display = 'block';
+            } else {
+                stagePaymentNotesGroup.style.display = 'none';
+            }
+        }
+        
+        // 监听付款方式变化
+        paymentMethod.addEventListener('change', toggleStagePaymentNotes);
+    }
+    
+    if (invoiceStage && invoiceNotesGroup) {
+        const invoiceDetailsGroup = document.getElementById('invoice_details_group');
+        
+        function toggleInvoiceNotes() {
+            if (invoiceStage.value && invoiceStage.value !== '') {
+                invoiceNotesGroup.style.display = 'block';
+                if (invoiceDetailsGroup) {
+                    invoiceDetailsGroup.style.display = 'block';
+                }
+            } else {
+                invoiceNotesGroup.style.display = 'none';
+                if (invoiceDetailsGroup) {
+                    invoiceDetailsGroup.style.display = 'none';
+                }
+            }
+        }
+        
+        // 监听发票开具阶段变化
+        invoiceStage.addEventListener('change', toggleInvoiceNotes);
+    }
+});
+</script>
 {% endblock %}

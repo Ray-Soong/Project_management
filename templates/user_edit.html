@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}编辑用户 - {{ user.username }}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">编辑用户信息</h1>
+
+<div class="card" style="max-width: 700px; margin: 0 auto;">
+    <div style="background: #e7f3ff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #667eea;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-info-circle" style="color: #667eea; font-size: 1.2rem;"></i>
+            <div>
+                <strong>当前用户信息</strong><br>
+                <span style="color: #666;">用户名：{{ user.username }}</span><br>
+                <span style="color: #666;">角色：
+                    {% if user.role == 'admin' %}
+                        <span class="badge" style="background: #dc3545;">管理员</span>
+                    {% elif user.role == 'finance' %}
+                        <span class="badge" style="background: #28a745;">财务</span>
+                    {% elif user.role == 'project_manager' %}
+                        <span class="badge" style="background: #ffc107; color: #333;">项目经理</span>
+                    {% elif user.role == 'developer' %}
+                        <span class="badge" style="background: #667eea;">开发工程师</span>
+                    {% else %}
+                        <span class="badge" style="background: #6c757d;">{{ user.role }}</span>
+                    {% endif %}
+                    （角色不可修改）
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <form method="POST" novalidate>
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            <label class="form-label">{{ form.username.label }}</label>
+            {{ form.username(class="form-control", placeholder="请输入用户名（3-20个字符）") }}
+            {% if form.username.errors %}
+                <div class="error-message">
+                    {% for error in form.username.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">{{ form.default_hourly_rate.label }}</label>
+            {{ form.default_hourly_rate(class="form-control", placeholder="例如：100.00") }}
+            <small style="color: #666;">留空则不设置默认工时费用</small>
+            {% if form.default_hourly_rate.errors %}
+                <div class="error-message">
+                    {% for error in form.default_hourly_rate.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <hr style="margin: 2rem 0; border: none; border-top: 2px solid #eee;">
+        
+        <div style="background: #fff3cd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #ffc107;">
+            <strong style="color: #856404;">
+                <i class="fas fa-exclamation-triangle"></i> 修改密码（可选）
+            </strong>
+            <p style="color: #856404; margin: 0.5rem 0 0 0; font-size: 0.9rem;">
+                如果不需要修改密码，请将以下两个密码框留空
+            </p>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">{{ form.password.label }}</label>
+            {{ form.password(class="form-control", placeholder="留空则不修改密码") }}
+            <small style="color: #666;">密码至少需要6个字符</small>
+            {% if form.password.errors %}
+                <div class="error-message">
+                    {% for error in form.password.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">{{ form.confirm_password.label }}</label>
+            {{ form.confirm_password(class="form-control", placeholder="请再次输入新密码") }}
+            {% if form.confirm_password.errors %}
+                <div class="error-message">
+                    {% for error in form.confirm_password.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div style="text-align: center; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee;">
+            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; margin-right: 1rem;">
+                <i class="fas fa-save"></i> 保存修改
+            </button>
+            <a href="{{ url_for('user_list') }}" class="btn btn-secondary" style="padding: 0.75rem 2rem;">
+                <i class="fas fa-times"></i> 取消
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #333;
+    display: block;
+}
+
+.form-control {
+    padding: 0.75rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 2px solid #e1e5e9;
+    width: 100%;
+    transition: border-color 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    outline: none;
+}
+
+.error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+}
+</style>
+{% endblock %}

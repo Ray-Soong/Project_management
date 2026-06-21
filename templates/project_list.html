@@ -3,16 +3,16 @@
 {% block title %}项目列表 - 项目管理系统{% endblock %}
 
 {% block content %}
-<h1 class="page-title">项目管理</h1>
+<h1 class="page-title" style="margin-bottom: 1rem;">项目管理</h1>
 
 <!-- 筛选器 -->
-<div class="card" style="margin-bottom: 1rem; margin-top: -0.5rem;">
-    <form method="GET" action="{{ url_for('index') }}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
-        <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">
+<div class="card" style="margin-bottom: 1rem; margin-top: -0.5rem; padding: 1rem;">
+    <form method="GET" action="{{ url_for('index') }}" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex: 1;">
+            <label class="form-label" style="margin-bottom: 0.3rem; font-size: 0.9rem;">
                 <i class="fas fa-folder" style="color: #667eea;"></i> 项目类别
             </label>
-            <select name="project_type" class="form-control">
+            <select name="project_type" class="form-control" style="padding: 0.4rem 0.6rem;">
                 <option value="">全部类别</option>
                 {% for type in project_types %}
                     <option value="{{ type }}" {% if selected_type == type %}selected{% endif %}>
@@ -22,81 +22,162 @@
             </select>
         </div>
         
-        <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">
-                <i class="fas fa-calendar-alt" style="color: #667eea;"></i> 合同签订开始日期
+        <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex: 1;">
+            <label class="form-label" style="margin-bottom: 0.3rem; font-size: 0.9rem;">
+                <i class="fas fa-user-tie" style="color: #667eea;"></i> 客户
             </label>
-            <input type="date" name="contract_date_from" class="form-control" value="{{ contract_date_from or '' }}">
+            <select name="customer_name" class="form-control" style="padding: 0.4rem 0.6rem;">
+                <option value="">全部客户</option>
+                {% for customer in customers %}
+                    <option value="{{ customer }}" {% if selected_customer == customer %}selected{% endif %}>
+                        {{ customer }}
+                    </option>
+                {% endfor %}
+            </select>
         </div>
         
-        <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">
-                <i class="fas fa-calendar-alt" style="color: #667eea;"></i> 合同签订结束日期
+        <div class="form-group" style="margin-bottom: 0; min-width: 140px; flex: 1;">
+            <label class="form-label" style="margin-bottom: 0.3rem; font-size: 0.9rem;">
+                <i class="fas fa-calendar-alt" style="color: #667eea;"></i> 合同签订日期(起)
             </label>
-            <input type="date" name="contract_date_to" class="form-control" value="{{ contract_date_to or '' }}">
+            <input type="date" name="contract_date_from" class="form-control" value="{{ contract_date_from or '' }}" style="padding: 0.4rem 0.6rem;">
         </div>
         
-        <div style="display: flex; gap: 0.5rem;">
-            <button type="submit" class="btn btn-primary">
+        <div class="form-group" style="margin-bottom: 0; min-width: 140px; flex: 1;">
+            <label class="form-label" style="margin-bottom: 0.3rem; font-size: 0.9rem;">
+                <i class="fas fa-calendar-alt" style="color: #667eea;"></i> 合同签订日期(止)
+            </label>
+            <input type="date" name="contract_date_to" class="form-control" value="{{ contract_date_to or '' }}" style="padding: 0.4rem 0.6rem;">
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0; min-width: 280px;">
+            <div style="display: flex; align-items: center; gap: 1.5rem; height: 34px;">
+                <label style="margin: 0; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+                    <input type="checkbox" name="has_unpaid" value="true" {% if has_unpaid == 'true' %}checked{% endif %} style="width: 16px; height: 16px; cursor: pointer;">
+                    <span style="font-weight: normal; white-space: nowrap; font-size: 0.9rem;">仅显示未收款(含税)</span>
+                </label>
+                <label style="margin: 0; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+                    <input type="checkbox" name="has_no_contract" value="true" {% if has_no_contract == 'true' %}checked{% endif %} style="width: 16px; height: 16px; cursor: pointer;">
+                    <span style="font-weight: normal; white-space: nowrap; font-size: 0.9rem;">仅显示未签合同</span>
+                </label>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+            <button type="submit" class="btn btn-primary" style="white-space: nowrap; padding: 0.5rem 1rem;">
                 <i class="fas fa-search"></i> 筛选
             </button>
-            <a href="{{ url_for('index') }}" class="btn btn-secondary">
+            <a href="{{ url_for('index') }}" class="btn btn-secondary" style="white-space: nowrap; padding: 0.5rem 1rem;">
                 <i class="fas fa-redo"></i> 重置
             </a>
+            {% if current_user.has_full_access() or current_user.is_project_manager() %}
+            <a href="{{ url_for('export_projects', project_type=selected_type, customer_name=selected_customer, contract_date_from=contract_date_from, contract_date_to=contract_date_to, has_unpaid=has_unpaid, has_no_contract=has_no_contract) }}" class="btn btn-success" style="white-space: nowrap; padding: 0.5rem 1rem;">
+                <i class="fas fa-file-excel"></i> 导出Excel
+            </a>
+            {% endif %}
         </div>
     </form>
 </div>
 
 <!-- 统计卡片 -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-number">{{ stats.total_projects }}</div>
-        <div class="stat-label">
-            {% if selected_type or contract_date_from or contract_date_to %}
-                筛选项目数
-            {% else %}
-                总项目数
-            {% endif %}
+<div class="card" style="margin-bottom: 1rem; padding: 1.2rem;">
+    <div style="display: grid; grid-template-columns: repeat(11, 1fr); gap: 1.2rem;">
+        <!-- 总数 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.3rem;">{{ stats.total_projects }}</div>
+            <div style="font-size: 0.75rem; color: #666;">
+                {% if selected_type or selected_customer or contract_date_from or has_unpaid == 'true' or has_no_contract == 'true' %}
+                    筛选总数
+                {% else %}
+                    总数
+                {% endif %}
+            </div>
         </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-number">{{ stats.active_projects }}</div>
-        <div class="stat-label">进行中项目</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-number">¥{{ "%.2f"|format(stats.total_contract_amount) }}</div>
-        <div class="stat-label">
-            {% if selected_type or contract_date_from or contract_date_to %}
-                筛选合同总金额
-            {% else %}
-                合同总金额(含税)
-            {% endif %}
+        <!-- 进行中 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #667eea; margin-bottom: 0.3rem;">{{ stats.active_projects }}</div>
+            <div style="font-size: 0.75rem; color: #666;">进行中</div>
         </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-number">¥{{ "%.2f"|format(stats.total_cost) }}</div>
-        <div class="stat-label">
-            {% if selected_type or contract_date_from or contract_date_to %}
-                筛选总成本
-            {% else %}
-                总成本
-            {% endif %}
+        <!-- 启动中 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545; margin-bottom: 0.3rem;">{{ stats.status_startup }}</div>
+            <div style="font-size: 0.75rem; color: #666;">启动中</div>
         </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-number">¥{{ "%.2f"|format(stats.gross_profit) }}</div>
-        <div class="stat-label">
-            {% if selected_type or contract_date_from or contract_date_to %}
-                筛选毛利
-            {% else %}
-                毛利
-            {% endif %}
+        <!-- 暂停 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #ffc107; margin-bottom: 0.3rem;">{{ stats.status_paused }}</div>
+            <div style="font-size: 0.75rem; color: #666;">暂停</div>
+        </div>
+        <!-- 验收中 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #17a2b8; margin-bottom: 0.3rem;">{{ stats.status_acceptance }}</div>
+            <div style="font-size: 0.75rem; color: #666;">验收中</div>
+        </div>
+        <!-- 验收待回款 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #28a745; margin-bottom: 0.3rem;">{{ stats.status_acceptance_payment }}</div>
+            <div style="font-size: 0.75rem; color: #666;">验收待回款</div>
+        </div>
+        <!-- 合同总金额 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.3rem;">¥{{ "%.0f"|format(stats.total_contract_amount) }}</div>
+            <div style="font-size: 0.75rem; color: #666;">
+                {% if selected_type or selected_customer or contract_date_from or has_unpaid == 'true' or has_no_contract == 'true' %}
+                    筛选合同总额
+                {% else %}
+                    合同总额
+                {% endif %}
+            </div>
+        </div>
+        <!-- 总成本 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.3rem;">¥{{ "%.0f"|format(stats.total_cost) }}</div>
+            <div style="font-size: 0.75rem; color: #666;">
+                {% if selected_type or selected_customer or contract_date_from or has_unpaid == 'true' or has_no_contract == 'true' %}
+                    筛选总成本
+                {% else %}
+                    总成本
+                {% endif %}
+            </div>
+        </div>
+        <!-- 毛利 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.3rem;">¥{{ "%.0f"|format(stats.gross_profit) }}</div>
+            <div style="font-size: 0.75rem; color: #666;">
+                {% if selected_type or selected_customer or contract_date_from or has_unpaid == 'true' or has_no_contract == 'true' %}
+                    筛选毛利
+                {% else %}
+                    毛利
+                {% endif %}
+            </div>
+        </div>
+        <!-- 未收款总和(含税) -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #dc3545; margin-bottom: 0.3rem;">¥{{ "%.0f"|format(stats.total_unpaid) }}</div>
+            <div style="font-size: 0.75rem; color: #666;">
+                {% if selected_type or selected_customer or contract_date_from or has_unpaid == 'true' or has_no_contract == 'true' %}
+                    筛选未收款(含税)
+                {% else %}
+                    未收款总和(含税)
+                {% endif %}
+            </div>
+        </div>
+        <!-- 应收款项总和 -->
+        <div style="text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #fd7e14; margin-bottom: 0.3rem;">¥{{ "%.0f"|format(stats.total_accounts_receivable) }}</div>
+            <div style="font-size: 0.75rem; color: #666;">
+                {% if selected_type or selected_customer or contract_date_from or has_unpaid == 'true' or has_no_contract == 'true' %}
+                    筛选应收款项
+                {% else %}
+                    应收款项总和
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>
 
 <!-- 筛选提示 -->
-{% if selected_type or contract_date_from or contract_date_to %}
+{% if selected_type or selected_customer or contract_date_from or has_unpaid == 'true' or has_no_contract == 'true' %}
 <div style="background: #e7f3ff; border-left: 4px solid #667eea; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
     <div style="display: flex; align-items: center; gap: 0.5rem; color: #333;">
         <i class="fas fa-filter" style="color: #667eea;"></i>
@@ -104,11 +185,20 @@
         {% if selected_type %}
             <span class="filter-tag">项目类别: {{ selected_type }}</span>
         {% endif %}
-        {% if contract_date_from %}
-            <span class="filter-tag">开始日期: {{ contract_date_from }}</span>
+        {% if selected_customer %}
+            <span class="filter-tag">客户名称: {{ selected_customer }}</span>
         {% endif %}
-        {% if contract_date_to %}
-            <span class="filter-tag">结束日期: {{ contract_date_to }}</span>
+        {% if contract_date_from or contract_date_to %}
+            <span class="filter-tag">签订日期: 
+                {% if contract_date_from %}{{ contract_date_from }}{% else %}不限{% endif %} 至 
+                {% if contract_date_to %}{{ contract_date_to }}{% else %}不限{% endif %}
+            </span>
+        {% endif %}
+        {% if has_unpaid == 'true' %}
+            <span class="filter-tag" style="background: #dc3545; color: white;"><i class="fas fa-exclamation-circle"></i> 存在未收款(含税)</span>
+        {% endif %}
+        {% if has_no_contract == 'true' %}
+            <span class="filter-tag" style="background: #ffc107; color: #333;"><i class="fas fa-file-contract"></i> 未签合同</span>
         {% endif %}
     </div>
 </div>
@@ -116,81 +206,218 @@
 
 <!-- 项目列表 -->
 <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
         <h2 style="margin: 0; color: #333;">项目列表</h2>
-        <a href="{{ url_for('create_project') }}" class="btn btn-primary">+ 添加项目</a>
+        <div style="display: flex; gap: 0.5rem;">
+            <button onclick="showColumnSettings()" class="btn btn-secondary" style="background: #6c757d;">
+                <i class="fas fa-columns"></i> 列显示设置
+            </button>
+            {% if current_user.has_full_access() or current_user.is_project_manager() %}
+            <a href="{{ url_for('create_project') }}" class="btn btn-primary">+ 添加项目</a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- 过滤状态提示 -->
+    <div class="filter-status" id="filterStatus">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <strong style="color: #333; font-size: 0.85rem;"><i class="fas fa-filter"></i> 当前过滤：</strong>
+            <div id="filterTags"></div>
+            <button class="filter-btn-clear" onclick="clearAllFilters()" style="margin-left: auto; padding: 3px 10px; font-size: 0.75rem;">
+                <i class="fas fa-times-circle"></i> 清除所有
+            </button>
+        </div>
     </div>
     
     {% if projects %}
-    <div class="table-container">
-        <table class="project-table">
+    <div class="table-wrapper" style="width: 100%; overflow-x: auto;">
+        <div class="table-container" style="overflow: visible;">
+            <table class="project-table" id="projectTable">
             <thead>
                 <tr>
-                    <th>项目ID</th>
-                    <th>项目名称</th>
-                    <th>项目经理</th>
-                    <th>客户名称</th>
-                    <th>项目类型</th>
-                    <th>状态</th>
-                    <th>责任工程师</th>
-                    <th>合同签订日期</th>
-                    <th>预计工时</th>
-                    <th>已记录工时</th>
-                    <th>进度</th>
-                    <th>未收款</th>
-                    <th>总成本</th>
-                    <th>操作</th>
+                    <th data-column-key="row_number" style="width: 60px; text-align: center;">
+                        序号
+                    </th>
+                    <th data-column-key="project_id">
+                        项目编号
+                        <span class="filter-icon" data-column-key="project_id" title="筛选">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </th>
+                    <th data-column-key="project_name">
+                        项目名称
+                        <span class="filter-icon" data-column-key="project_name" title="筛选">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </th>
+                    <th data-column-key="customer_name">
+                        客户名称
+                        <span class="filter-icon" data-column-key="customer_name" title="筛选">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </th>
+                    <th data-column-key="final_customer">
+                        最终客户
+                        <span class="filter-icon" data-column-key="final_customer" title="筛选">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </th>
+                    <th data-column-key="project_type">
+                        项目类型
+                        <span class="filter-icon" data-column-key="project_type" title="筛选">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </th>
+                    <th data-column-key="status">
+                        状态
+                        <span class="filter-icon" data-column-key="status" title="筛选">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </th>
+                    <th data-column-key="developer">
+                        责任工程师
+                        <span class="filter-icon" data-column-key="developer" title="筛选">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </th>
+                    <th data-column-key="manager">项目经理</th>
+                    <th data-column-key="contract_date">
+                        合同签订日期
+                        <span class="filter-icon" data-column-key="contract_date" title="筛选">
+                            <i class="fas fa-filter"></i>
+                        </span>
+                    </th>
+                    <th data-column-key="start_date">开始日期</th>
+                    <th data-column-key="planned_end_date">计划结束日期</th>
+                    <th data-column-key="acceptance_date">验收日期</th>
+                    <th data-column-key="settlement_date">结算日期</th>
+                    <th data-column-key="po_number">PO号</th>
+                    <th data-column-key="estimated_hours">预计工时</th>
+                    <th data-column-key="logged_hours">已记录工时</th>
+                    <th data-column-key="progress">进度</th>
+                    <th data-column-key="contract_amount_with_tax">合同金额(含税)</th>
+                    <th data-column-key="contract_amount_without_tax">合同金额(不含税)</th>
+                    <th data-column-key="payment_received">回款金额</th>
+                    <th data-column-key="unpaid">未收款(含税)</th>
+                    <th data-column-key="accounts_receivable">应收账款</th>
+                    <th data-column-key="payment_method">付款方式</th>
+                    <th data-column-key="invoice_status">发票状态</th>
+                    <th data-column-key="invoice_date">开票日期</th>
+                    <th data-column-key="total_cost">总成本</th>
+                    <th data-column-key="development_cost">开发费用</th>
+                    <th data-column-key="outsourcing_cost">外包费用(含税)</th>
+                    <th data-column-key="outsourcing_cost_without_tax">外包费用(不含税)</th>
+                    <th data-column-key="indirect_cost">间接成本</th>
+                    <th data-column-key="expense_cost">报销费用</th>
+                    <th data-column-key="gross_profit">毛利</th>
+                    <th data-column-key="profit_margin">毛利率</th>
+                    {% for field in custom_fields %}
+                    <th data-column-key="custom_{{ field.id }}">{{ field.field_label }}</th>
+                    {% endfor %}
+                    <th data-column-key="actions">操作</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in projects %}
                 {% set unpaid = (p.contract_amount_with_tax or 0) - (p.payment_received or 0) %}
-                {% set is_overdue = p.planned_end_date and p.status not in ['已完成', '已取消'] and p.planned_end_date < today %}
-                <tr>
-                    <td><strong>#{{ p.id }}</strong></td>
-                    <td>{{ p.name }}</td>
-                    <td>{{ p.manager }}</td>
-                    <td>{{ p.customer_name or '未设置' }}</td>
-                    <td>{{ p.project_type or '未设置' }}</td>
-                    <td {% if is_overdue %}class="overdue-highlight"{% endif %}>
+                {% set is_overdue = p.planned_end_date and p.status not in ['已完成', '已取消', '验收待回款'] and p.planned_end_date < today %}
+                <tr class="project-row">
+                    <td data-column-key="row_number" style="text-align: center; font-weight: 600; color: #666;">{{ loop.index }}</td>
+                    <td data-column-key="project_id" data-filter-value="{{ p.project_number or '#' + p.id|string }}">{{ p.project_number or '#' + p.id|string }}</td>
+                    <td data-column-key="project_name" data-filter-value="{{ p.name }}">
+                        <a href="{{ url_for('edit_project', project_id=p.id) }}" style="color: #667eea; text-decoration: none; font-weight: 500; cursor: pointer;">
+                            {{ p.name }}
+                        </a>
+                    </td>
+                    <td data-column-key="customer_name" data-filter-value="{{ p.customer_name or '未设置' }}">{{ p.customer_name or '未设置' }}</td>
+                    <td data-column-key="final_customer" data-filter-value="{{ p.final_customer or '未设置' }}">{{ p.final_customer or '未设置' }}</td>
+                    <td data-column-key="project_type" data-filter-value="{{ p.project_type or '未设置' }}">{{ p.project_type or '未设置' }}</td>
+                    <td data-column-key="status" data-filter-value="{{ '超期' if is_overdue else p.status }}" {% if is_overdue %}class="overdue-highlight"{% endif %}>
                         {% if is_overdue %}
-                            <span class="overdue-badge">
-                                <i class="fas fa-clock"></i> 超期
+                            <span style="background-color: #ffc107; color: #333; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.3rem;">
+                                超期
+                            </span>
+                        {% elif p.status == '暂停' %}
+                            <span style="background-color: #6c757d; color: white; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-weight: 600; display: inline-block;">
+                                {{ p.status }}
                             </span>
                         {% else %}
-                            <span class="status-badge" style="background-color: {{ p.get_status_color() }}">
+                            <span style="color: #333; font-weight: 600; font-size: 0.875rem;">
                                 {{ p.status }}
                             </span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td data-column-key="developer">
                         {% set developers = p.get_assigned_developers() %}
                         {% if developers %}
-                            {% for dev in developers %}
-                                <span class="badge" style="background: #667eea; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; margin-right: 0.2rem;">{{ dev.username }}</span>
-                            {% endfor %}
+                            <div class="developer-list" id="dev-list-{{ p.id }}" style="display: flex; flex-wrap: wrap; gap: 0.2rem; max-height: 3.2rem; overflow: hidden;">
+                                {% for dev in developers %}
+                                    <span class="badge dev-badge" style="background: #667eea; color: white; padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.75rem; white-space: nowrap; line-height: 1.2;">{{ dev.username }}</span>
+                                {% endfor %}
+                            </div>
+                            {% if developers|length > 2 %}
+                                <button class="btn btn-link" style="font-size: 0.7rem; padding: 0.1rem 0; color: #667eea; text-decoration: underline; cursor: pointer; margin-top: 0.1rem; border: none; background: none;" onclick="toggleDevelopers({{ p.id }}, this)">
+                                    显示更多 ({{ developers|length }}人)
+                                </button>
+                            {% endif %}
                         {% else %}
                             <span style="color: #999;">未分配</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td data-column-key="manager">{{ p.manager or '未设置' }}</td>
+                    <td data-column-key="contract_date">
                         {% if p.contract_signing_date %}
                             {{ p.contract_signing_date.strftime('%Y-%m-%d') }}
                         {% else %}
-                            <span style="color: #999;">未设置</span>
+                            <span style="background-color: #ffe6e6; color: #dc3545; padding: 0.3rem 0.6rem; border-radius: 4px; font-weight: 600; display: inline-block; border: 1px solid #dc3545;">无合同</span>
                         {% endif %}
                     </td>
-                    <td>
-                        {% if p.estimated_hours %}
-                            {{ p.estimated_hours }}小时
+                    <td data-column-key="start_date">
+                        {% if p.start_date %}
+                            {{ p.start_date.strftime('%Y-%m-%d') }}
                         {% else %}
                             <span style="color: #999;">未设置</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <strong>{{ "%.1f"|format(p.get_total_logged_hours()) }}小时</strong>
+                    <td data-column-key="planned_end_date">
+                        {% if p.planned_end_date %}
+                            {{ p.planned_end_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
                     </td>
-                    <td>
+                    <td data-column-key="acceptance_date">
+                        {% if p.acceptance_date %}
+                            {{ p.acceptance_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="settlement_date">
+                        {% if p.settlement_date %}
+                            {{ p.settlement_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="po_number">
+                        {% if p.po_number %}
+                            {{ p.po_number }}
+                        {% else %}
+                            <span style="color: #dc3545; font-weight: 600;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="estimated_hours">
+                        {% if p.estimated_hours %}
+                            {{ p.estimated_hours }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="logged_hours">
+                        <strong>{{ "%.1f"|format(p.get_total_logged_hours()) }}</strong>
+                    </td>
+                    <td data-column-key="progress">
                         {% set progress = p.get_progress_percentage() %}
                         <div style="display: flex; align-items: center;">
                             <div style="width: 60px; height: 8px; background: #e9ecef; border-radius: 4px; margin-right: 0.5rem;">
@@ -199,14 +426,35 @@
                             <span style="font-size: 0.8rem;">{{ "%.0f"|format(progress) }}%</span>
                         </div>
                     </td>
-                    <td {% if unpaid > 0 %}class="unpaid-highlight"{% endif %}>
+                    <td data-column-key="contract_amount_with_tax">
+                        {% if p.contract_amount_with_tax %}
+                            ¥{{ "%.2f"|format(p.contract_amount_with_tax) }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="contract_amount_without_tax">
+                        {% if p.contract_amount_without_tax %}
+                            ¥{{ "%.2f"|format(p.contract_amount_without_tax) }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="payment_received">
+                        {% if p.payment_received %}
+                            ¥{{ "%.2f"|format(p.payment_received) }}
+                        {% else %}
+                            ¥0.00
+                        {% endif %}
+                    </td>
+                    <td data-column-key="unpaid" {% if unpaid > 0 %}class="unpaid-highlight"{% endif %}>
                         {% if p.contract_amount_with_tax is not none %}
                             <div style="display: flex; align-items: center; justify-content: space-between;">
                                 <strong style="{% if unpaid > 0 %}color: #dc3545; font-weight: 700;{% endif %}">
                                     ¥{{ "%.2f"|format(unpaid) }}
                                 </strong>
                                 {% if unpaid > 0 %}
-                                    <i class="fas fa-exclamation-triangle" style="color: #dc3545; margin-left: 0.3rem;" title="存在未收款项"></i>
+                                    <i style="color: #dc3545; margin-left: 0.3rem;" title="存在未收款项(含税)"></i>
                                 {% else %}
                                     <i class="fas fa-check-circle" style="color: #28a745; margin-left: 0.3rem;" title="已全部收款"></i>
                                 {% endif %}
@@ -215,19 +463,112 @@
                             <span style="color: #999;">未设置</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td data-column-key="accounts_receivable">
+                        {% if p.accounts_receivable %}
+                            <strong style="color: #ff6b6b;">¥{{ "%.2f"|format(p.accounts_receivable) }}</strong>
+                        {% else %}
+                            ¥0.00
+                        {% endif %}
+                    </td>
+                    <td data-column-key="payment_method">
+                        {{ p.payment_method or '未设置' }}
+                    </td>
+                    <td data-column-key="invoice_status">
+                        {% if p.invoice_stage %}
+                            {% if p.invoice_stage == '未开' %}
+                                <span style="color: #999;">未开</span>
+                            {% elif p.invoice_stage == '预付款' %}
+                                <span style="color: #28a745; font-weight: 600;">
+                                    <i class="fas fa-check-circle"></i> 预付款
+                                </span>
+                            {% else %}
+                                <span style="color: #007bff; font-weight: 600;">
+                                    <i class="fas fa-check-circle"></i> {{ p.invoice_stage }}
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color: #999;">未开</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="invoice_date">
+                        {% if p.invoice_date %}
+                            {{ p.invoice_date.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            <span style="color: #999;">未设置</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="total_cost">
                         <div style="position: relative; display: inline-block;">
                             <strong style="color: #007bff;">¥{{ "%.2f"|format(p.get_total_cost()) }}</strong>
                         </div>
                     </td>
-                    <td>
+                    <td data-column-key="development_cost">
+                        <strong style="color: #5568d3;">¥{{ "%.2f"|format(p.get_total_development_cost()) }}</strong>
+                    </td>
+                    <td data-column-key="outsourcing_cost">
+                        {% if p.outsourcing_cost %}
+                            ¥{{ "%.2f"|format(p.outsourcing_cost) }}
+                        {% else %}
+                            ¥0.00
+                        {% endif %}
+                    </td>
+                    <td data-column-key="outsourcing_cost_without_tax">
+                        {% if p.outsourcing_cost_without_tax %}
+                            ¥{{ "%.2f"|format(p.outsourcing_cost_without_tax) }}
+                        {% else %}
+                            ¥0.00
+                        {% endif %}
+                    </td>
+                    <td data-column-key="indirect_cost">
+                        {% if p.indirect_cost %}
+                            ¥{{ "%.2f"|format(p.indirect_cost) }}
+                        {% else %}
+                            ¥0.00
+                        {% endif %}
+                    </td>
+                    <td data-column-key="expense_cost">
+                        {% set expense_cost = p.expenses|selectattr('status', 'equalto', '已批准')|map(attribute='total_amount')|sum %}
+                        ¥{{ "%.2f"|format(expense_cost if expense_cost else 0) }}
+                    </td>
+                    <td data-column-key="gross_profit">
+                        {% set payment_received = p.payment_received|float if p.payment_received else 0 %}
+                        {% set gross_profit = (payment_received / 1.06) - p.get_total_cost() %}
+                        <strong style="color: {% if gross_profit >= 0 %}#28a745{% else %}#dc3545{% endif %};">¥{{ "%.2f"|format(gross_profit) }}</strong>
+                    </td>
+                    <td data-column-key="profit_margin">
+                        {% set contract_amount_without_tax = p.contract_amount_without_tax|float if p.contract_amount_without_tax else 0 %}
+                        {% if contract_amount_without_tax and contract_amount_without_tax > 0 %}
+                            {% set payment_received = p.payment_received|float if p.payment_received else 0 %}
+                            {% set gross_profit = (payment_received / 1.06) - p.get_total_cost() %}
+                            {% set profit_margin = (gross_profit / contract_amount_without_tax) * 100 %}
+                            <strong style="color: {% if profit_margin >= 0 %}#28a745{% else %}#dc3545{% endif %};">
+                                {{ "%.1f"|format(profit_margin) }}%
+                            </strong>
+                        {% else %}
+                            <span style="color: #999;">-</span>
+                        {% endif %}
+                    </td>
+                    {% for field in custom_fields %}
+                    <td data-column-key="custom_{{ field.id }}">
+                        {% set field_value = p.values.filter_by(custom_field_id=field.id).first() %}
+                        {% if field_value and field_value.value %}
+                            {{ field_value.value }}
+                        {% else %}
+                            <span style="color: #999;">-</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                    <td data-column-key="actions">
                         <a href="{{ url_for('project_detail', project_id=p.id) }}" class="btn btn-primary" style="font-size: 0.8rem; margin-right: 0.5rem;">详情</a>
+                        {% if current_user.has_full_access() or current_user.is_project_manager() %}
                         <a href="{{ url_for('edit_project', project_id=p.id) }}" class="btn btn-secondary" style="font-size: 0.8rem;">编辑</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
     {% else %}
     <div class="empty-state">
@@ -236,16 +577,595 @@
         <p>请调整筛选条件或创建新项目</p>
         <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem;">
             <a href="{{ url_for('index') }}" class="btn btn-secondary">清除筛选</a>
+            {% if current_user.has_full_access() or current_user.is_project_manager() %}
             <a href="{{ url_for('create_project') }}" class="btn btn-primary">创建项目</a>
+            {% endif %}
         </div>
     </div>
     {% endif %}
+</div>
+
+<!-- 列显示设置弹窗 -->
+<div id="columnSettingsModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-columns"></i> 列显示设置</h3>
+            <span class="close-btn" onclick="closeColumnSettings()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p style="color: #666; margin-bottom: 1rem; font-size: 0.9rem;">
+                <i class="fas fa-info-circle"></i> 选择要在表格中显示的列，未勾选的列将被隐藏
+            </p>
+            
+            <div class="column-category">
+                <h4><i class="fas fa-list"></i> 基础信息</h4>
+                <div class="column-settings-grid">
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="project_id" checked>
+                        <span>项目编号</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="project_name" checked>
+                        <span>项目名称</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="customer_name" checked>
+                        <span>客户名称</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="project_type" checked>
+                        <span>项目类型</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="status" checked>
+                        <span>状态</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="manager" checked>
+                        <span>项目经理</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="developer" checked>
+                        <span>责任工程师</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="po_number" checked>
+                        <span>PO号</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="column-category">
+                <h4><i class="fas fa-calendar-alt"></i> 日期信息</h4>
+                <div class="column-settings-grid">
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="contract_date" checked>
+                        <span>合同签订日期</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="start_date">
+                        <span>开始日期</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="planned_end_date">
+                        <span>计划结束日期</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="acceptance_date">
+                        <span>验收日期</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="settlement_date">
+                        <span>结算日期</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="column-category">
+                <h4><i class="fas fa-clock"></i> 工时进度</h4>
+                <div class="column-settings-grid">
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="estimated_hours" checked>
+                        <span>预计工时</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="logged_hours" checked>
+                        <span>已记录工时</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="progress" checked>
+                        <span>进度</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="column-category">
+                <h4><i class="fas fa-dollar-sign"></i> 财务信息</h4>
+                <div class="column-settings-grid">
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="contract_amount_with_tax">
+                        <span>合同金额(含税)</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="contract_amount_without_tax">
+                        <span>合同金额(不含税)</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="payment_received">
+                        <span>回款金额</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="unpaid" checked>
+                        <span>未收款(含税)</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="accounts_receivable" checked>
+                        <span>应收账款</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="payment_method">
+                        <span>付款方式</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="invoice_status">
+                        <span>发票状态</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="invoice_date">
+                        <span>开票日期</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="column-category">
+                <h4><i class="fas fa-chart-line"></i> 成本利润</h4>
+                <div class="column-settings-grid">
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="total_cost" checked>
+                        <span>总成本</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="development_cost">
+                        <span>开发费用</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="outsourcing_cost">
+                        <span>外包费用(含税)</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="outsourcing_cost_without_tax">
+                        <span>外包费用(不含税)</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="indirect_cost">
+                        <span>间接成本</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="expense_cost">
+                        <span>报销费用</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="gross_profit" checked>
+                        <span>毛利</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" value="profit_margin">
+                        <span>毛利率</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="column-category" id="customFieldsCategory" style="display: none;">
+                <h4><i class="fas fa-puzzle-piece"></i> 自定义字段</h4>
+                <div class="column-settings-grid" id="customFieldsList">
+                    <!-- 动态加载自定义字段 -->
+                </div>
+            </div>
+            
+            <div class="column-category">
+                <h4><i class="fas fa-cog"></i> 操作</h4>
+                <div class="column-settings-grid">
+                    <label class="column-setting-item" style="grid-column: 1 / -1;">
+                        <input type="checkbox" value="actions" checked disabled>
+                        <span>操作按钮 <small style="color: #999;">(必须显示)</small></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="resetColumnSettings()" class="btn btn-secondary">
+                <i class="fas fa-undo"></i> 恢复默认
+            </button>
+            <button onclick="applyColumnSettings()" class="btn btn-primary">
+                <i class="fas fa-check"></i> 应用设置
+            </button>
+        </div>
+    </div>
 </div>
 
 <style>
 .badge {
     display: inline-block;
     white-space: nowrap;
+    padding: 0.15rem 0.35rem;
+    margin: 0.1rem 0.1rem;
+    line-height: 1.2;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    white-space: nowrap;
+}
+
+/* 表头样式 - 确保下拉菜单可见 */
+.project-table thead th {
+    position: relative;
+    overflow: visible !important;
+}
+
+/* 表头过滤图标样式 */
+.filter-icon {
+    display: inline-block;
+    cursor: pointer;
+    margin-left: 5px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    color: #999;
+    font-size: 0.8em;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.filter-icon:hover {
+    background: #f0f0f0;
+    color: #667eea;
+}
+
+.filter-icon.active {
+    background: #667eea;
+    color: white;
+}
+
+/* 过滤下拉菜单 */
+.filter-dropdown {
+    position: fixed;
+    background: white;
+    border: 2px solid #667eea;
+    border-radius: 4px;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+    z-index: 99999;
+    min-width: 180px;
+    max-width: 280px;
+    display: none;
+}
+
+.filter-dropdown.show {
+    display: block;
+}
+
+.filter-dropdown-header {
+    padding: 6px 10px;
+    border-bottom: 2px solid #667eea;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 2px 2px 0 0;
+}
+
+.filter-dropdown-header strong {
+    font-size: 0.85rem;
+    color: white;
+    font-weight: 600;
+}
+
+.filter-dropdown-header i {
+    color: white !important;
+}
+
+.filter-search {
+    width: calc(100% - 12px);
+    padding: 5px 8px;
+    border: 1px solid #d0d0d0;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    margin: 6px 6px;
+    color: #333;
+    background: #f9f9f9;
+}
+
+.filter-search:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+}
+
+.filter-dropdown-body {
+    max-height: 250px;
+    overflow-y: auto;
+    padding: 4px 6px;
+}
+
+.filter-option {
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s;
+    margin: 1px 0;
+}
+
+.filter-option:hover {
+    background: #e8eaff;
+}
+
+.filter-option input[type="checkbox"] {
+    margin-right: 6px;
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+}
+
+.filter-option label {
+    cursor: pointer;
+    margin: 0;
+    flex: 1;
+    font-size: 0.8rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.filter-option:first-child {
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 3px;
+    padding-bottom: 5px;
+}
+
+.filter-option:first-child label {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.filter-dropdown-footer {
+    padding: 6px 8px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    gap: 6px;
+    justify-content: space-between;
+    background: #f9f9f9;
+}
+
+.filter-btn {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+
+.filter-btn-apply {
+    background: #667eea;
+    color: white;
+    flex: 1;
+}
+
+.filter-btn-apply:hover {
+    background: #5568d3;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.filter-btn-clear {
+    background: #e0e0e0;
+    color: #555;
+}
+
+.filter-btn-clear:hover {
+    background: #d0d0d0;
+}
+
+/* 过滤状态提示 */
+.filter-status {
+    background: linear-gradient(135deg, #e7f3ff 0%, #f0f7ff 100%);
+    border-left: 3px solid #667eea;
+    padding: 8px 12px;
+    margin-bottom: 0.8rem;
+    border-radius: 3px;
+    display: none;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
+}
+
+.filter-status.show {
+    display: block;
+}
+
+.filter-status-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    margin-right: 6px;
+    margin-top: 3px;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
+}
+
+.filter-status-item i {
+    cursor: pointer;
+    margin-left: 4px;
+    opacity: 0.9;
+}
+
+.filter-status-item i:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* 隐藏被过滤的行 */
+.project-row.filtered-out {
+    display: none;
+}
+
+/* 列显示设置弹窗 */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 1.2rem 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 8px 8px 0 0;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.close-btn {
+    font-size: 1.8rem;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+}
+
+.close-btn:hover {
+    opacity: 1;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.column-category {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 3px solid #667eea;
+}
+
+.column-category h4 {
+    margin: 0 0 0.8rem 0;
+    font-size: 1rem;
+    color: #667eea;
+    font-weight: 600;
+}
+
+.column-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8rem;
+}
+
+.column-setting-item {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 0.8rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #f9f9f9;
+}
+
+.column-setting-item:hover {
+    border-color: #667eea;
+    background: #f0f4ff;
+}
+
+.column-setting-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 0.6rem;
+    cursor: pointer;
+}
+
+.column-setting-item input[type="checkbox"]:disabled {
+    opacity: 0.5;
+}
+
+.column-setting-item span {
+    font-size: 0.9rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.column-setting-item input[type="checkbox"]:checked + span {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    gap: 0.8rem;
+    justify-content: flex-end;
+    background: #f9f9f9;
+}
+
+/* 隐藏的列 */
+th[data-column-key].hidden-column,
+td[data-column-key].hidden-column {
+    display: none !important;
 }
 
 /* 成本提示框样式 */
@@ -286,60 +1206,6 @@
     display: block;
 }
 
-/* 未收款高亮样式 */
-.unpaid-highlight {
-    background: linear-gradient(90deg, #fff3cd 0%, #ffe69c 50%, #fff3cd 100%) !important;
-    background-size: 200% 100% !important;
-    animation: shimmer 3s ease-in-out infinite;
-    border-left: 4px solid #dc3545 !important;
-    font-weight: bold;
-    position: relative;
-}
-
-.unpaid-highlight::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: linear-gradient(180deg, #dc3545 0%, #ff6b6b 50%, #dc3545 100%);
-    animation: pulse-border 2s ease-in-out infinite;
-}
-
-/* 超期高亮样式 */
-.overdue-highlight {
-    background: linear-gradient(90deg, #ffe0e0 0%, #ffcccc 50%, #ffe0e0 100%) !important;
-    background-size: 200% 100% !important;
-    animation: shimmer-red 3s ease-in-out infinite;
-    border-left: 4px solid #ff4444 !important;
-    position: relative;
-}
-
-.overdue-highlight::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: linear-gradient(180deg, #ff4444 0%, #ff6666 50%, #ff4444 100%);
-    animation: pulse-border 2s ease-in-out infinite;
-}
-
-.overdue-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    background: #ff4444;
-    color: white;
-    padding: 0.3rem 0.8rem;
-    border-radius: 16px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    animation: pulse-badge 1.5s ease-in-out infinite;
-}
-
 @media (max-width: 768px) {
     .project-table th,
     .project-table td {
@@ -350,6 +1216,611 @@
     .badge {
         font-size: 0.6rem !important;
         padding: 0.1rem 0.3rem !important;
+    }
+}
+
+/* 紧凑表格样式 */
+.project-table th,
+.project-table td {
+    padding: 0.4rem 0.6rem;
+    line-height: 1.3;
+    vertical-align: middle;
+}
+
+.project-table tbody tr {
+    height: auto;
+}
+
+.project-table {
+    border-collapse: collapse;
+}
+</style>
+
+<script>
+// 切换开发者列表显示
+function toggleDevelopers(projectId, button) {
+    const devList = document.getElementById(`dev-list-${projectId}`);
+    
+    if (devList.style.maxHeight === '2.4rem' || !devList.style.maxHeight) {
+        // 展开
+        devList.style.maxHeight = 'none';
+        devList.style.overflow = 'visible';
+        button.textContent = '隐藏';
+    } else {
+        // 收起
+        devList.style.maxHeight = '2.4rem';
+        devList.style.overflow = 'hidden';
+        // 重新获取开发者数量
+        const devCount = devList.querySelectorAll('.dev-badge').length;
+        button.textContent = `显示更多 (${devCount}人)`;
+    }
+}
+
+// 表头过滤功能
+let columnFilters = {};
+let currentDropdown = null;
+
+// 列显示配置
+const COLUMN_VISIBILITY_KEY = 'projectListColumnVisibility';
+
+// 检测项目数据是否有更新
+document.addEventListener('DOMContentLoaded', function() {
+    initializeFilters();
+    loadColumnSettings();
+    
+    const dataUpdated = sessionStorage.getItem('projectDataUpdated');
+    const lastUpdatedProject = sessionStorage.getItem('lastUpdatedProject');
+    
+    if (dataUpdated === 'true') {
+        // 显示数据已更新提示
+        const alertDiv = document.createElement('div');
+        alertDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            animation: slideDown 0.3s ease-out;
+        `;
+        
+        const projectInfo = lastUpdatedProject ? ` - ${lastUpdatedProject}` : '';
+        alertDiv.innerHTML = `
+            <i class="fas fa-check-circle" style="font-size: 20px;"></i>
+            <span>项目数据已更新${projectInfo}，列表已刷新显示最新数据</span>
+            <button onclick="this.parentElement.remove()" style="background: transparent; border: none; color: white; font-size: 20px; cursor: pointer; margin-left: 10px;">&times;</button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // 清除标记
+        sessionStorage.removeItem('projectDataUpdated');
+        sessionStorage.removeItem('lastUpdatedProject');
+        
+        // 5秒后自动隐藏
+        setTimeout(() => {
+            if (alertDiv.parentElement) {
+                alertDiv.style.animation = 'slideUp 0.3s ease-out';
+                setTimeout(() => alertDiv.remove(), 300);
+            }
+        }, 5000);
+    }
+});
+
+function initializeFilters() {
+    // 为每个过滤图标添加点击事件
+    document.querySelectorAll('.filter-icon').forEach(icon => {
+        icon.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const columnKey = this.dataset.columnKey;
+            toggleFilterDropdown(this, columnKey);
+        });
+    });
+    
+    // 点击其他地方关闭下拉菜单
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.filter-dropdown') && !e.target.closest('.filter-icon')) {
+            closeAllDropdowns();
+        }
+    });
+    
+    // 页面滚动时关闭下拉菜单
+    window.addEventListener('scroll', function() {
+        closeAllDropdowns();
+    });
+    
+    // 表格容器滚动时关闭下拉菜单
+    const tableWrapper = document.querySelector('.table-wrapper');
+    if (tableWrapper) {
+        tableWrapper.addEventListener('scroll', function() {
+            closeAllDropdowns();
+        });
+    }
+}
+
+function toggleFilterDropdown(icon, columnKey) {
+    // 如果点击的是已打开的下拉菜单，则关闭它
+    if (currentDropdown && currentDropdown.dataset.columnKey == columnKey) {
+        closeAllDropdowns();
+        return;
+    }
+    
+    // 关闭其他下拉菜单
+    closeAllDropdowns();
+    
+    // 创建下拉菜单
+    const dropdown = createFilterDropdown(columnKey);
+    
+    // 使用fixed定位，直接添加到body
+    document.body.appendChild(dropdown);
+    
+    // 计算并设置下拉菜单位置
+    const iconRect = icon.getBoundingClientRect();
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = (iconRect.bottom + 3) + 'px';
+    dropdown.style.left = iconRect.left + 'px';
+    
+    dropdown.classList.add('show');
+    currentDropdown = dropdown;
+    currentDropdown.dataset.columnKey = columnKey;
+}
+
+function createFilterDropdown(columnKey) {
+    const dropdown = document.createElement('div');
+    dropdown.className = 'filter-dropdown';
+    
+    // 获取该列的所有唯一值
+    const values = getColumnValues(columnKey);
+    const columnName = getColumnName(columnKey);
+    
+    // 创建下拉菜单内容（使用安全的ID生成）
+    const safeId = columnKey.replace(/[^a-zA-Z0-9]/g, '_');
+    dropdown.innerHTML = `
+        <div class="filter-dropdown-header">
+            <strong>${columnName}</strong>
+            <i class="fas fa-times" style="cursor: pointer;" onclick="closeAllDropdowns()"></i>
+        </div>
+        <div style="padding: 0;">
+            <input type="text" class="filter-search" placeholder="搜索..." onkeyup="filterOptions(this, '${columnKey}')">
+        </div>
+        <div class="filter-dropdown-body" id="filterBody_${safeId}">
+            <div class="filter-option">
+                <input type="checkbox" id="selectAll_${safeId}" onchange="toggleSelectAll('${columnKey}')" checked>
+                <label for="selectAll_${safeId}"><strong>全选</strong></label>
+            </div>
+            ${values.map((value, index) => `
+                <div class="filter-option" data-value="${value}">
+                    <input type="checkbox" id="filter_${safeId}_${index}" value="${value}" 
+                           ${!columnFilters[columnKey] || columnFilters[columnKey].has(value) ? 'checked' : ''}>
+                    <label for="filter_${safeId}_${index}">${value || '(空)'}</label>
+                </div>
+            `).join('')}
+        </div>
+        <div class="filter-dropdown-footer">
+            <button class="filter-btn filter-btn-clear" onclick="clearColumnFilter('${columnKey}')">
+                清除
+            </button>
+            <button class="filter-btn filter-btn-apply" onclick="applyFilter('${columnKey}')">
+                <i class="fas fa-check"></i> 应用
+            </button>
+        </div>
+    `;
+    
+    return dropdown;
+}
+
+function getColumnValues(columnKey) {
+    const values = new Set();
+    const rows = document.querySelectorAll('#projectTable tbody tr');
+    
+    rows.forEach(row => {
+        const cell = row.querySelector(`td[data-column-key="${columnKey}"]`);
+        if (cell) {
+            const value = cell.dataset.filterValue || cell.textContent.trim();
+            values.add(value);
+        }
+    });
+    
+    return Array.from(values).sort();
+}
+
+function getColumnName(columnKey) {
+    const th = document.querySelector(`th[data-column-key="${columnKey}"]`);
+    if (th) {
+        // 获取表头文本，排除过滤图标
+        const clone = th.cloneNode(true);
+        const filterIcon = clone.querySelector('.filter-icon');
+        if (filterIcon) filterIcon.remove();
+        return clone.textContent.trim();
+    }
+    return columnKey;
+}
+
+function filterOptions(input, columnKey) {
+    const searchValue = input.value.toLowerCase();
+    const safeId = columnKey.replace(/[^a-zA-Z0-9]/g, '_');
+    const options = document.querySelectorAll(`#filterBody_${safeId} .filter-option:not(:first-child)`);
+    
+    options.forEach(option => {
+        const text = option.textContent.toLowerCase();
+        option.style.display = text.includes(searchValue) ? 'flex' : 'none';
+    });
+}
+
+function toggleSelectAll(columnKey) {
+    const safeId = columnKey.replace(/[^a-zA-Z0-9]/g, '_');
+    const selectAll = document.getElementById(`selectAll_${safeId}`);
+    const checkboxes = document.querySelectorAll(`#filterBody_${safeId} input[type="checkbox"]:not(#selectAll_${safeId})`);
+    
+    checkboxes.forEach(cb => {
+        if (cb.closest('.filter-option').style.display !== 'none') {
+            cb.checked = selectAll.checked;
+        }
+    });
+}
+
+function applyFilter(columnKey) {
+    const safeId = columnKey.replace(/[^a-zA-Z0-9]/g, '_');
+    const checkboxes = document.querySelectorAll(`#filterBody_${safeId} input[type="checkbox"]:not(#selectAll_${safeId})`);
+    const selectedValues = new Set();
+    
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            selectedValues.add(cb.value);
+        }
+    });
+    
+    // 如果所有值都被选中，则视为没有过滤
+    const allValues = getColumnValues(columnKey);
+    if (selectedValues.size === allValues.length) {
+        delete columnFilters[columnKey];
+    } else {
+        columnFilters[columnKey] = selectedValues;
+    }
+    
+    applyAllFilters();
+    updateFilterStatus();
+    closeAllDropdowns();
+}
+
+function clearColumnFilter(columnKey) {
+    delete columnFilters[columnKey];
+    applyAllFilters();
+    updateFilterStatus();
+    closeAllDropdowns();
+}
+
+function clearAllFilters() {
+    columnFilters = {};
+    applyAllFilters();
+    updateFilterStatus();
+    closeAllDropdowns();
+}
+
+function applyAllFilters() {
+    const rows = document.querySelectorAll('#projectTable tbody tr');
+    
+    rows.forEach(row => {
+        let shouldShow = true;
+        
+        // 检查每个活动的过滤器
+        for (let columnKey in columnFilters) {
+            const cell = row.querySelector(`td[data-column-key="${columnKey}"]`);
+            if (cell) {
+                const value = cell.dataset.filterValue || cell.textContent.trim();
+                if (!columnFilters[columnKey].has(value)) {
+                    shouldShow = false;
+                    break;
+                }
+            }
+        }
+        
+        if (shouldShow) {
+            row.classList.remove('filtered-out');
+        } else {
+            row.classList.add('filtered-out');
+        }
+    });
+    
+    // 更新过滤图标状态
+    document.querySelectorAll('.filter-icon').forEach(icon => {
+        const columnKey = icon.dataset.columnKey;
+        if (columnFilters[columnKey]) {
+            icon.classList.add('active');
+        } else {
+            icon.classList.remove('active');
+        }
+    });
+}
+
+function updateFilterStatus() {
+    const filterStatus = document.getElementById('filterStatus');
+    const filterTags = document.getElementById('filterTags');
+    
+    if (Object.keys(columnFilters).length === 0) {
+        filterStatus.classList.remove('show');
+        return;
+    }
+    
+    filterStatus.classList.add('show');
+    filterTags.innerHTML = '';
+    
+    for (let columnKey in columnFilters) {
+        const columnName = getColumnName(columnKey);
+        const values = Array.from(columnFilters[columnKey]);
+        const displayText = values.length > 3 
+            ? `${values.slice(0, 3).join(', ')}... (${values.length}项)` 
+            : values.join(', ');
+        
+        const tag = document.createElement('div');
+        tag.className = 'filter-status-item';
+        tag.innerHTML = `
+            ${columnName}: ${displayText}
+            <i class="fas fa-times-circle" onclick="clearColumnFilter('${columnKey}')"></i>
+        `;
+        filterTags.appendChild(tag);
+    }
+}
+
+function closeAllDropdowns() {
+    document.querySelectorAll('.filter-dropdown').forEach(dropdown => {
+        dropdown.remove();
+    });
+    currentDropdown = null;
+}
+
+// ========== 列显示设置功能 ==========
+
+// 自定义字段列表
+const customFieldsList = [
+    {% if custom_fields %}
+        {% for field in custom_fields %}
+            {
+                id: {{ field.id }},
+                field_name: "{{ field.field_name }}",
+                field_label: "{{ field.field_label }}",
+                field_type: "{{ field.field_type }}"
+            }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    {% endif %}
+];
+
+function showColumnSettings() {
+    const modal = document.getElementById('columnSettingsModal');
+    modal.classList.add('show');
+    
+    // 加载自定义字段
+    loadCustomFields();
+    
+    // 加载当前设置
+    const visibility = getColumnVisibility();
+    document.querySelectorAll('.column-setting-item input[type="checkbox"]').forEach(checkbox => {
+        const columnKey = checkbox.value;
+        checkbox.checked = visibility[columnKey] !== false;
+    });
+}
+
+function loadCustomFields() {
+    const customFieldsContainer = document.getElementById('customFieldsList');
+    const customFieldsCategory = document.getElementById('customFieldsCategory');
+    
+    if (customFieldsList && customFieldsList.length > 0) {
+        customFieldsCategory.style.display = 'block';
+        customFieldsContainer.innerHTML = '';
+        
+        customFieldsList.forEach(field => {
+            const label = document.createElement('label');
+            label.className = 'column-setting-item';
+            label.innerHTML = `
+                <input type="checkbox" value="custom_${field.id}">
+                <span>${field.field_label}</span>
+            `;
+            customFieldsContainer.appendChild(label);
+        });
+        
+        // 恢复自定义字段的选中状态
+        const visibility = getColumnVisibility();
+        customFieldsContainer.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            const columnKey = checkbox.value;
+            checkbox.checked = visibility[columnKey] !== false;
+        });
+    } else {
+        customFieldsCategory.style.display = 'none';
+    }
+}
+
+function closeColumnSettings() {
+    const modal = document.getElementById('columnSettingsModal');
+    modal.classList.remove('show');
+}
+
+function applyColumnSettings() {
+    const visibility = {};
+    document.querySelectorAll('.column-setting-item input[type="checkbox"]').forEach(checkbox => {
+        visibility[checkbox.value] = checkbox.checked;
+    });
+    
+    // 保存到 localStorage
+    localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(visibility));
+    
+    // 应用设置
+    applyColumnVisibility(visibility);
+    
+    // 关闭弹窗
+    closeColumnSettings();
+    
+    // 显示提示
+    showToast('列显示设置已保存', 'success');
+}
+
+function resetColumnSettings() {
+    // 清除保存的设置
+    localStorage.removeItem(COLUMN_VISIBILITY_KEY);
+    
+    // 全部选中
+    document.querySelectorAll('.column-setting-item input[type="checkbox"]').forEach(checkbox => {
+        if (!checkbox.disabled) {
+            checkbox.checked = true;
+        }
+    });
+    
+    // 应用默认设置
+    const defaultVisibility = {};
+    document.querySelectorAll('.column-setting-item input[type="checkbox"]').forEach(checkbox => {
+        defaultVisibility[checkbox.value] = true;
+    });
+    applyColumnVisibility(defaultVisibility);
+    
+    showToast('已恢复默认设置', 'info');
+}
+
+function getColumnVisibility() {
+    const saved = localStorage.getItem(COLUMN_VISIBILITY_KEY);
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            console.error('Failed to parse column visibility settings:', e);
+        }
+    }
+    
+    // 默认全部显示
+    const defaultVisibility = {};
+    document.querySelectorAll('th[data-column-key]').forEach(th => {
+        defaultVisibility[th.dataset.columnKey] = true;
+    });
+    return defaultVisibility;
+}
+
+function applyColumnVisibility(visibility) {
+    // 应用到表头
+    document.querySelectorAll('th[data-column-key]').forEach(th => {
+        const columnKey = th.dataset.columnKey;
+        if (visibility[columnKey] === false) {
+            th.classList.add('hidden-column');
+        } else {
+            th.classList.remove('hidden-column');
+        }
+    });
+    
+    // 应用到表格数据行
+    document.querySelectorAll('td[data-column-key]').forEach(td => {
+        const columnKey = td.dataset.columnKey;
+        if (visibility[columnKey] === false) {
+            td.classList.add('hidden-column');
+        } else {
+            td.classList.remove('hidden-column');
+        }
+    });
+}
+
+function loadColumnSettings() {
+    const visibility = getColumnVisibility();
+    applyColumnVisibility(visibility);
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    const colors = {
+        success: '#28a745',
+        info: '#667eea',
+        warning: '#ffc107',
+        error: '#dc3545'
+    };
+    
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${colors[type] || colors.info};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 100001;
+        font-size: 0.9rem;
+        animation: slideInRight 0.3s ease-out;
+    `;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
+
+// 点击弹窗外部关闭
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('columnSettingsModal');
+    if (e.target === modal) {
+        closeColumnSettings();
+    }
+});
+</script>
+
+<style>
+.filter-tag {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 0.3rem 0.8rem;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-right: 0.5rem;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100px);
     }
 }
 </style>

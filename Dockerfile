@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 升级pip到最新版本
-RUN pip install --upgrade pip
+RUN python -m pip install --upgrade pip
 
 # 复制requirements文件
 COPY requirements.txt .
@@ -51,7 +51,7 @@ python-dateutil==2.8.2
 EOF
 
 # 安装Python依赖
-RUN pip install --no-cache-dir -r requirements_sqlite.txt
+RUN python -m pip install --no-cache-dir -r requirements_sqlite.txt
 
 # 复制应用代码
 COPY . .

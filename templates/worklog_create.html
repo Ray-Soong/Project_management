@@ -23,7 +23,17 @@
         
         <div class="form-group">
             {{ form.hours.label(class="form-label") }}
-            {{ form.hours(class="form-control", placeholder="例如: 8.5", step="0.1", min="0.1", max="24") }}
+            <small style="color: #666; display: block; margin-bottom: 0.5rem;">
+                <i class="fas fa-info-circle"></i> 最小单位为0.5小时（例如：0.5, 1.0, 1.5, 2.0等）
+            </small>
+            {{ form.hours(class="form-control", placeholder="例如: 1.5", step="0.5", min="0.5", max="24") }}
+            {% if form.hours.errors %}
+                <div style="color: #dc3545; font-size: 0.875rem; margin-top: 0.25rem;">
+                    {% for error in form.hours.errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
         
         <div class="form-group">

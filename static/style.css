@@ -51,7 +51,7 @@ body {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 1.5rem;
-    margin-bottom: 3rem;
+    margin-bottom: 1rem;
     width: 100%;
 }
 
@@ -85,7 +85,7 @@ body {
 .card {
     background: white;
     border-radius: 12px;
-    padding: 2.5rem;
+    padding: 1rem;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     margin-bottom: 2rem;
     width: 100%;
@@ -112,7 +112,7 @@ body {
 /* 表格样式 - 扩大宽度 */
 .table-container {
     width: 100%;
-    overflow-x: auto;
+    overflow: visible;
 }
 
 .project-table {
@@ -129,14 +129,17 @@ body {
 
 .project-table thead th {
     color: white;
-    padding: 1.2rem 1rem;
+    padding: 0.6rem 0.5rem;
     text-align: left;
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    position: relative;
+    overflow: visible;
 }
 
 .project-table tbody tr {
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 0.5px solid #f0f0f0;
     transition: background-color 0.3s;
 }
 
@@ -145,8 +148,10 @@ body {
 }
 
 .project-table td {
-    padding: 1.2rem 1rem;
+    padding: 0.6rem 0.5rem;
     color: #333;
+    font-size: 0.85rem;
+    white-space: nowrap;
 }
 
 /* 按钮样式 */

@@ -44,24 +44,58 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th>费用名称</th>
-                        <th>类别</th>
+                        <th>费用日期</th>
+                        <th>费用类别</th>
                         <th>金额</th>
-                        <th>日期</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in expense.items %}
                     <tr>
-                        <td>{{ item.item_name }}</td>
+                        <td>{{ item.expense_date.strftime('%Y-%m-%d') }}</td>
                         <td>{{ item.category }}</td>
                         <td class="amount">¥{{ "%.2f"|format(item.amount) }}</td>
-                        <td>{{ item.expense_date.strftime('%Y-%m-%d') }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        {% if expense.items and expense.items[0].receipt_image %}
+        <div class="receipt-materials">
+            <h3>报销材料</h3>
+            <div class="material-item">
+                <div class="material-icon">
+                    {% set file_ext = expense.items[0].receipt_image.split('.')[-1].lower() %}
+                    <i class="fas fa-file-archive"></i>
+                </div>
+                <div class="material-info">
+                    <div class="material-name">
+                        {{ expense.items[0].receipt_original_name if expense.items[0].receipt_original_name else '报销凭证文件' }}
+                    </div>
+                    <div class="material-meta">
+                        <span class="file-type">{{ file_ext.upper() }}</span>
+                        <span class="separator">•</span>
+                        <span>{{ expense.items[0].expense_date.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                </div>
+                <div class="material-actions">
+                    {% if file_ext == 'zip' %}
+                        <a href="{{ url_for('expense_view', item_id=expense.items[0].id) }}" 
+                           target="_blank" class="btn-view">
+                            <i class="fas fa-eye"></i> 查看
+                        </a>
+                        <a href="{{ url_for('expense_download', item_id=expense.items[0].id) }}" 
+                           class="btn-download">
+                            <i class="fas fa-download"></i> 下载
+                        </a>
+                    {% else %}
+                        <span class="text-muted">仅支持ZIP查看/下载</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
     
     <div class="approval-form">
@@ -69,14 +103,15 @@
             {{ form.hidden_tag() }}
             
             <div class="form-group">
-                {{ form.status.label(class="form-label") }}
-                {{ form.status(class="form-control") }}
+                {{ form.approval_action.label(class="form-label") }}
+                {{ form.approval_action(class="form-control", id="approval_action") }}
+                <small class="form-text" id="action_hint" style="display: block; margin-top: 0.5rem;">选择审批操作</small>
             </div>
             
-            <div class="form-group">
-                {{ form.assign_to.label(class="form-label") }}
+            <div class="form-group" id="assign_group">
+                {{ form.assign_to.label(class="form-label", id="assign_label") }}
                 {{ form.assign_to(class="form-control") }}
-                <small class="form-text">审批通过时可选择分配给同事进行后续处理</small>
+                <small class="form-text" id="assign_hint">不选择表示流程结束</small>
             </div>
             
             <div class="form-group">
@@ -91,6 +126,46 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const actionSelect = document.getElementById('approval_action');
+    const assignGroup = document.getElementById('assign_group');
+    const assignLabel = document.getElementById('assign_label');
+    const assignHint = document.getElementById('assign_hint');
+    const actionHint = document.getElementById('action_hint');
+    const expenseStatus = '{{ expense.status }}';
+    
+    function updateForm() {
+        const action = actionSelect.value;
+        
+        if (action === 'approve') {
+            assignLabel.textContent = '下一个处理人';
+            assignHint.textContent = '选择下一个处理人继续处理，不选择表示流程结束';
+            actionHint.textContent = '同意此报销，可选择下一个处理人';
+            assignGroup.style.display = 'block';
+        } else if (action === 'waiting_refund') {
+            assignLabel.textContent = '下一个处理人';
+            assignHint.textContent = '选择下一个处理人处理退款';
+            actionHint.innerHTML = '<span style="color: #fd7e14;">将此报销标记为等待退款</span>';
+            assignGroup.style.display = 'block';
+        } else if (action === 'refund_complete') {
+            assignLabel.textContent = '下一个处理人';
+            assignHint.textContent = '标记退款完成，流程结束';
+            actionHint.innerHTML = '<span style="color: #28a745;">标记退款已完成，流程结束</span>';
+            assignGroup.style.display = 'none';
+        } else if (action === 'reject') {
+            assignLabel.textContent = '申请人';
+            assignHint.textContent = '拒绝后将分配给申请人重新处理';
+            actionHint.textContent = '拒绝此报销，申请人需要重新处理';
+            assignGroup.style.display = 'none';
+        }
+    }
+    
+    actionSelect.addEventListener('change', updateForm);
+    updateForm();
+});
+</script>
 
 <style>
 .page-header {
@@ -184,6 +259,102 @@
     background-color: #f8f9fa;
     font-weight: 600;
     color: #495057;
+}
+
+.receipt-materials {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.receipt-materials h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.material-item {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 1.25rem;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    gap: 1rem;
+}
+
+.material-icon {
+    font-size: 2.5rem;
+    color: #ffc107;
+    min-width: 60px;
+    text-align: center;
+}
+
+.material-info {
+    flex: 1;
+}
+
+.material-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+}
+
+.material-meta {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.material-meta .separator {
+    margin: 0 0.5rem;
+}
+
+.file-type {
+    background: #e7f3ff;
+    color: #0066cc;
+    padding: 0.125rem 0.5rem;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.material-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-view,
+.btn-download {
+    padding: 0.5rem 1rem;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    color: #007bff;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.btn-view:hover {
+    background: #007bff;
+    color: white;
+}
+
+.btn-download {
+    border-color: #28a745;
+    color: #28a745;
+}
+
+.btn-download:hover {
+    background: #28a745;
+    color: white;
+}
+
+.text-muted {
+    color: #6c757d;
 }
 
 .approval-form {
