@@ -1,0 +1,94 @@
+# -----------------------------------------------------------------------------
+# 场景：Python / Flask + Docker + 脚本部署；项目管理文档仓库可共用前半段
+# 不需要的整段用 # 注释掉即可
+# -----------------------------------------------------------------------------
+
+# --- 环境与密钥（务必保留）---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境（目录名按你本机习惯保留/增删）
+.venv/
+venv/
+ENV/
+env/
+
+# --- Flask / 本地配置覆盖 ---
+instance/
+.webassets-cache
+config_local.py
+local_settings.py
+
+# --- 测试与覆盖率 ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+
+# --- Docker（可选：若不想提交本地 override 再取消注释）---
+# docker-compose.override.yml
+
+# --- 数据库与备份产物（避免误提交大文件或含数据快照）---
+*.db
+*.sqlite3
+*.sql.gz
+*.dump
+backups/
+dump/
+
+# --- 日志与临时文件 ---
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# --- 操作系统 ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- 编辑器 / IDE ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Jupyter（若偶尔写分析笔记本）---
+.ipynb_checkpoints/
+
+# --- Node（若以后加前端构建工具）---
+node_modules/
