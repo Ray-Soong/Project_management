@@ -81,10 +81,10 @@ class ProjectForm(FlaskForm):
     invoice_amount_issued = DecimalField("已开发票金额", validators=[Optional()])
     current_invoice_amount = DecimalField("当前发票金额", validators=[Optional()])
     accounts_receivable = DecimalField("应收账款", validators=[Optional()])
-    po_number = StringField("PO号", validators=[Optional()])
-    contract_file = FileField("合同文件", validators=[Optional()])
     area = DecimalField("面积", validators=[Optional()])
     unit_price = DecimalField("单价", validators=[Optional()])
+    po_number = StringField("PO号", validators=[Optional()])
+    contract_file = FileField("合同文件", validators=[Optional()])
 
     assigned_developers = MultiCheckboxField("责任工程师", coerce=int)
     assigned_managers = MultiCheckboxField("项目经理", coerce=int)

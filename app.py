@@ -999,8 +999,10 @@ def edit_project(project_id):
                 return value.strftime('%Y-%m-%d') if value else '未设置'
             if field_name in ['contract_amount_with_tax', 'contract_amount_without_tax', 
                             'payment_received', 'outsourcing_cost', 'outsourcing_cost_without_tax', 'supplier_pending_amount', 'indirect_cost', 'invoice_amount', 
-                            'invoice_amount_issued', 'current_invoice_amount', 'accounts_receivable', 'area', 'unit_price']:
+                            'invoice_amount_issued', 'current_invoice_amount', 'accounts_receivable', 'unit_price']:
                 return f'¥{float(value):.2f}' if value else '¥0.00'
+            if field_name == 'area':
+                return f'{float(value):.2f}' if value else '未设置'
             if field_name == 'estimated_hours':
                 return f'{float(value):.1f}小时' if value else '未设置'
             return str(value) if value else '未设置'
@@ -1047,6 +1049,8 @@ def edit_project(project_id):
             'current_invoice_amount': form.current_invoice_amount.data or 0,
             'accounts_receivable': form.accounts_receivable.data or 0,
             'po_number': form.po_number.data,
+            'area': form.area.data,
+            'unit_price': form.unit_price.data,
         }
         
         # 比较每个字段
@@ -1055,7 +1059,7 @@ def edit_project(project_id):
             # 特殊处理数字字段的比较
             if field_name in ['contract_amount_with_tax', 'contract_amount_without_tax', 
                             'payment_received', 'outsourcing_cost', 'outsourcing_cost_without_tax', 'supplier_pending_amount', 'indirect_cost', 'invoice_amount', 
-                            'invoice_amount_issued', 'current_invoice_amount', 'accounts_receivable', 'estimated_hours']:
+                            'invoice_amount_issued', 'current_invoice_amount', 'accounts_receivable', 'estimated_hours', 'area', 'unit_price']:
                 old_val = float(old_value) if old_value else 0
                 new_val = float(new_value) if new_value else 0
                 if abs(old_val - new_val) > 0.01:  # 避免浮点数比较问题
@@ -1110,6 +1114,8 @@ def edit_project(project_id):
         project.current_invoice_amount = form.current_invoice_amount.data or 0
         project.accounts_receivable = form.accounts_receivable.data or 0
         project.po_number = form.po_number.data
+        project.area = form.area.data
+        project.unit_price = form.unit_price.data
         
         # 处理合同文件上传
         if form.contract_file.data:
@@ -2652,7 +2658,19 @@ def expense_approve(expense_id):
         else:
             # 拒绝审批，指定申请人为下一步处理人
             applicant = db.session.get(User, expense.user_id)
-            task = Task(
+            
+            # 清除之前的所有待处理任务
+            old_tasks = Task.query.filter(
+                Task.expense_id == expense.id,
+                Task.task_type == 'expense_process',
+                Task.status.in_(['处理中', '等待退款', '退款完成'])
+            ).all()
+            for task in old_tasks:
+                task.status = '已完成'
+                task.completed_at = datetime.now()
+            
+            # 创建新任务分配给申请人重新处理
+            new_task = Task(
                 title=f"处理报销：{expense.title}",
                 description=f"您的报销申请被拒绝。报销金额：¥{expense.total_amount}\n拒绝原因：{form.approve_comment.data or '无'}\n请根据意见重新处理",
                 task_type='expense_process',
@@ -2661,8 +2679,8 @@ def expense_approve(expense_id):
                 expense_id=expense.id,
                 priority='普通'
             )
-            task.validate_expense_process_task()
-            db.session.add(task)
+            new_task.validate_expense_process_task()
+            db.session.add(new_task)
             expense.status = '新建'
             expense.approve_comment = f"被 {current_user.username} 拒绝，原因：{form.approve_comment.data or '无'}"
             expense.approver_id = current_user.id
@@ -3072,58 +3090,63 @@ def delete_receipt_file(item_id, file_index):
 @login_required
 def task_list():
     """我的任务"""
+    def is_valid_expense_task(task):
+        """判断expense_process任务是否有效"""
+        if task.task_type != 'expense_process':
+            return True
+        if not task.expense_id:
+            return False
+        expense = db.session.get(Expense, task.expense_id)
+        return expense is not None
+    
     if current_user.is_admin():
-        # 管理员可以看到所有未完成的任务
-        # 过滤：排除没有有效报销关联的expense_process类型任务
+        # 管理员可以看到正在处理的所有报销任务
         tasks = Task.query.filter(
-            Task.status.in_(['处理中', '等待退款'])
+            Task.task_type == 'expense_process',
+            Task.status.in_(['处理中', '等待退款']),
+            Task.expense_id.isnot(None)
         ).order_by(Task.created_at.desc()).all()
-        # 过滤孤立任务（expense_process类型但expense_id为空或关联报销已删除）
-        tasks = [t for t in tasks if not (t.task_type == 'expense_process' and (not t.expense_id or not db.session.get(Expense, t.expense_id)))]
+        # 过滤孤立任务（报销已删除）
+        tasks = [t for t in tasks if is_valid_expense_task(t)]
+    
     elif current_user.is_finance():
-        # 财务可以看到所有未完成的任务
+        # 财务可以看到正在处理的所有报销任务
         tasks = Task.query.filter(
-            Task.status.in_(['处理中', '等待退款'])
+            Task.task_type == 'expense_process',
+            Task.status.in_(['处理中', '等待退款']),
+            Task.expense_id.isnot(None)
         ).order_by(Task.created_at.desc()).all()
         # 过滤孤立任务
-        tasks = [t for t in tasks if not (t.task_type == 'expense_process' and (not t.expense_id or not db.session.get(Expense, t.expense_id)))]
+        tasks = [t for t in tasks if is_valid_expense_task(t)]
+    
     elif current_user.is_project_manager():
-        # 项目经理可以看到分配给自己的未完成任务
+        # 项目经理可以看到：
+        # 1. 分配给自己的任务
+        # 2. 自己分配的任务（且没有被标记为已完成）
         assigned_tasks = Task.query.filter(
             Task.assigned_to == current_user.id,
             Task.status.in_(['处理中', '等待退款'])
         ).all()
-        assigned_ids = {t.id for t in assigned_tasks}
+        assigned_ids = {t.id for t in assigned_tasks if is_valid_expense_task(t)}
         
-        accessible_project_ids = current_user.get_accessible_project_ids()
-        expense_tasks = []
+        # 自己分配的任务
+        created_tasks = Task.query.filter(
+            Task.assigned_by == current_user.id,
+            Task.status.in_(['处理中', '等待退款'])
+        ).all()
+        created_ids = {t.id for t in created_tasks if is_valid_expense_task(t)}
         
-        if accessible_project_ids:
-            # 查询所有expense_process类型的未完成任务
-            all_expense_tasks = Task.query.filter(
-                Task.task_type == 'expense_process',
-                Task.status.in_(['处理中', '等待退款']),
-                Task.expense_id.isnot(None)
-            ).all()
-            
-            # 筛选出对应项目的任务
-            for task in all_expense_tasks:
-                expense = db.session.get(Expense, task.expense_id)
-                if expense and expense.project_id in accessible_project_ids:
-                    expense_tasks.append(task)
-        
-        task_ids = assigned_ids | {t.id for t in expense_tasks}
+        task_ids = assigned_ids | created_ids
         tasks = Task.query.filter(Task.id.in_(task_ids)).order_by(Task.created_at.desc()).all() if task_ids else []
-        # 过滤孤立任务
-        tasks = [t for t in tasks if not (t.task_type == 'expense_process' and (not t.expense_id or not db.session.get(Expense, t.expense_id)))]
+    
     else:
-        # 普通用户只能看到分配给自己的未完成任务
+        # 普通用户（开发工程师）只能看到分配给自己的任务
         tasks = Task.query.filter(
             Task.assigned_to == current_user.id,
             Task.status.in_(['处理中', '等待退款'])
         ).order_by(Task.created_at.desc()).all()
         # 过滤孤立任务
-        tasks = [t for t in tasks if not (t.task_type == 'expense_process' and (not t.expense_id or not db.session.get(Expense, t.expense_id)))]
+        tasks = [t for t in tasks if is_valid_expense_task(t)]
     
     return render_template("task_list.html", tasks=tasks)
 

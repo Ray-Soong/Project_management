@@ -67,6 +67,14 @@
                 <span>{{ project.project_type or '未设置' }}</span>
             </div>
             <div class="info-item">
+                <strong>面积:</strong>
+                <span>{{ "%.2f"|format(project.area) if project.area else '未设置' }}</span>
+            </div>
+            <div class="info-item">
+                <strong>单价:</strong>
+                <span>¥{{ "%.2f"|format(project.unit_price) if project.unit_price else '未设置' }}</span>
+            </div>
+            <div class="info-item">
                 <strong>开始日期:</strong>
                 <span>{{ project.start_date.strftime('%Y-%m-%d') if project.start_date else '未设置' }}</span>
             </div>

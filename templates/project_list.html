@@ -311,6 +311,8 @@
                     <th data-column-key="expense_cost">报销费用</th>
                     <th data-column-key="gross_profit">毛利</th>
                     <th data-column-key="profit_margin">毛利率</th>
+                    <th data-column-key="area">面积</th>
+                    <th data-column-key="unit_price">单价</th>
                     {% for field in custom_fields %}
                     <th data-column-key="custom_{{ field.id }}">{{ field.field_label }}</th>
                     {% endfor %}
@@ -544,6 +546,20 @@
                             <strong style="color: {% if profit_margin >= 0 %}#28a745{% else %}#dc3545{% endif %};">
                                 {{ "%.1f"|format(profit_margin) }}%
                             </strong>
+                        {% else %}
+                            <span style="color: #999;">-</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="area">
+                        {% if p.area %}
+                            {{ "%.2f"|format(p.area) }}
+                        {% else %}
+                            <span style="color: #999;">-</span>
+                        {% endif %}
+                    </td>
+                    <td data-column-key="unit_price">
+                        {% if p.unit_price %}
+                            ¥{{ "%.2f"|format(p.unit_price) }}
                         {% else %}
                             <span style="color: #999;">-</span>
                         {% endif %}
